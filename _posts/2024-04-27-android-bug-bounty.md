@@ -18,7 +18,7 @@ I am not going to describe what an activity is but Android application is design
 
 Activities are not exported by default, but there are multiple ways for an activity to be exported. One being **"exported=true"** and another being **"\<intent-filter\>"**. On the activity where intent filter has been defined, its exported by default unless the **"exported=false"** has been defined. Most of the times, the static analyser or tools that we use only covers the **"exported=true"** part and you might want to check the intent filter manually while you go through the Android Manifest file.
 
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="../assets/img/images/android-bug-1.png">
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-1.png">
 
 One approach of identifying exported activities is manual as defined earlier and next one can be through a drozer through the drozer.
 
@@ -37,7 +37,7 @@ Package: com.root3d.intentinjection
 So what does an exported activity means? It means that it can be accessed by any other application. Is it vulnerable right now? may be, may not be. But if you reported this as an issue, it will probably led to either informative/NA or Low if you are lucky.
 
 So how can you leverage the impact for this? Navigate to the corresponding activity, on this case, **PrivacyPolicy**. 
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="../assets/img/images/android-bug-2.png">
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-2.png">
 
 Here comes the intent injection to open redirection part. But how?
 
@@ -68,7 +68,7 @@ Execute the same above command with the extra string as mentioned below and see 
 adb shell am start -n com.root3d.intentinjection/com.root3d.intentinjection.PrivacyPolicy --es privacy-url "https://google.com"
 ```
 
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="../assets/img/images/android-bug-3.png">
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-3.png">
 
 
 See now you have successfully performed open redirection on the mobile application. But what happends when you submit this issue for your bounties. Nothing much as adb can access any private activity on the mobile application and also you have rooted your device right?
@@ -79,7 +79,7 @@ Example, we do have additional one activity called **HomeActivitycom.root3d.inte
 adb shell am start -n com.root3d.intentinjection/com.root3d.intentinjection.HomeActivity --es blog-url "https://google.com"
 ```
 
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="../assets/img/images/android-bug-4.png">
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-4.png">
 
 Was that vulnerable? May be, you can report it mentioning that the URL validation has not been performed. Will you get the bounties? I would have given you, but they, no.
 
@@ -117,7 +117,7 @@ You can create an empty activity on your Android studion and paste this code. Re
 
 The code block `intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);` might be needed sometime as while executing the attacker application, instead of loading the arbitrary URL into the vulnerable application, sometimes it loads to the current attacker application. So it launches the activity in a new task separate from the current task.
 
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="../assets/img/images/android-bug-5.png">    
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-5.png">  
 
 
 Until now they would treat this issue as Low or Medium because its just an open redirection. 
@@ -152,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
 Now the attacker application that you have created can exfiltrate the session cookie and then you can now use that session cookie as a victim user.
 
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="../assets/img/images/android-bug-6.png">  
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-6.png">
 
 But do not just end here because you haven't done anything with the session cookie, go through the application source code, identify the API endpoints like for example **/delete/users** **/update/profile** **/update/email** **/api/profile** and try to provide an impact on the Confidentialy, Integrity and Availability as well. Check if you can get the profile details, check if you can modify the user details like email address, mobile numbers, and also check if you can delete the current user by using the session cookie.
 
