@@ -28,7 +28,8 @@ One approach to identifying exported activities is manual, as described earlier.
 
 Observe that two activities are exported in the application.
 
-**<u>Note: The vulnerable application discussed below is available on my [Github Repo](https://github.com/nirajkharel/IntentInjection)</u>**
+<h4>Note: The vulnerable application discussed below is available on my <a href="https://github.com/nirajkharel/IntentInjection">Github Repo.</a></h4>
+
 
 ```bash
 dz> run app.activity.info -a com.root3d.intentinjection
