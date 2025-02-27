@@ -89,7 +89,7 @@ adb shell am start -n com.root3d.intentinjection/com.root3d.intentinjection.Home
 
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-4.png">
 
-Was that vulnerable? May be, you can report it mentioning that the URL validation has not been performed. Will you get the bounties? I would have given you, but they, no. You need to do proper exploitation inorder to be it a valid and you cannot exploit this issue until there is something like **Intent Redirection** vulnerability. Intent Redirection on itself is an interesting topic, you can have a blog by [Oversecured here](https://blog.oversecured.com/Android-Access-to-app-protected-components/) 
+Was that vulnerable? May be, you can report it mentioning that the URL validation has not been performed. Will you get the bounties? I would have given you, but they, no. You need to do proper exploitation inorder to make it valid and you cannot exploit this issue until there is something like **Intent Redirection** vulnerability. Intent Redirection on itself is an interesting topic, you can have a blog by [Oversecured here](https://blog.oversecured.com/Android-Access-to-app-protected-components/) 
 
 So never just collect the activity and execute the adb command, see, analyse and then only report if that is exported.
 
