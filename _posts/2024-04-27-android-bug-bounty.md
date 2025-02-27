@@ -93,7 +93,7 @@ Was that vulnerable? May be, you can report it mentioning that the URL validatio
 
 So never just collect the activity and execute the adb command, see, analyse and then only report if that is exported.
 
-Lets forget this HomeActivity part and focus on the PrivacyPolicy one. So before your andreline rush to submit the report, we need to be able to explain them that any other application would be able to load the URL into their application. Until then our issue would not be applicable as they would not accept the issue if you need a physical access into the device and for adb to be able to execute, you would need.
+Lets forget this **HomeActivity** part and focus on the **PrivacyPolicy** one. So before your andreline rush to submit the report, we need to be able to explain them that any other application would be able to load the URL into their application. Until then our issue would not be applicable as they would not accept the issue if you need a physical access into the device and for adb to be able to execute, you would need.
 
 So, lets develop an android application i.e. attacker application. What does this below code do?
 
