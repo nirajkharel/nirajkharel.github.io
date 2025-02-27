@@ -12,7 +12,9 @@ Last month, I explored bug bounties on Android applications and discovered coupl
 
 In this blog, I aim to share insights into one of the methods for identifying such issues and strategies to escalate their impact to High or Critical severity. Please note that this is not the only approach but rather one specific type of vulnerability I focused on during my tests.
 
-**So, What is an Exported Activity? Intent Injection? Insecure WebView? Account Takeover?**
+<h4>Note: The vulnerable application discussed below is available on my <a href="https://github.com/nirajkharel/IntentInjection">Github Repo.</a></h4>
+
+<br>**So, What is an Exported Activity? Intent Injection? Insecure WebView? Account Takeover?**
 
 I am not going to dive into the basics of what an activity is, but Android applications are designed to be sandboxed, and so are their activities. Unless explicitly exported, activities within a particular application cannot be accessed by other applications on the device.
 
@@ -27,9 +29,6 @@ Most of the time, static analyzers or tools only detect activities explicitly ma
 One approach to identifying exported activities is manual, as described earlier. Another method is by using Drozer.
 
 Observe that two activities are exported in the application.
-
-<h4>Note: The vulnerable application discussed below is available on my <a href="https://github.com/nirajkharel/IntentInjection">Github Repo.</a></h4>
-
 
 ```bash
 dz> run app.activity.info -a com.root3d.intentinjection
