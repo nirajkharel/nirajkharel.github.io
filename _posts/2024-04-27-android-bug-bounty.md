@@ -1,7 +1,7 @@
 ---
 title: One Approach towards Android Bug Bounty
 author: nirajkharel
-date: 2025-01-04 14:10:00 +0800
+date: 2025-01-05 14:10:00 +0800
 categories: [Mobile Pentesting, Android]
 tags: [Mobile Pentesting, Android]
 render_with_liquid: false
