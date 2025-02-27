@@ -81,7 +81,7 @@ adb shell am start -n com.root3d.intentinjection/com.root3d.intentinjection.Priv
 
 Now, you have successfully performed open redirection on the mobile application. But what happens when you submit this issue for your bounty? Not much, because ADB can access any private activity on the mobile application, and you have rooted your device, right?
 
-Example, we do have additional one activity called **HomeActivitycom.root3d.intentinjection.HomeActivity** but it has not been exported. Let's try if we can load the arbitrary URL into that activity using adb.
+Example, we do have additional one activity called **com.root3d.intentinjection.HomeActivity** but it has not been exported. Let's try if we can load the arbitrary URL into that activity using adb.
 
 ```bash
 adb shell am start -n com.root3d.intentinjection/com.root3d.intentinjection.HomeActivity --es blog-url "https://google.com"
