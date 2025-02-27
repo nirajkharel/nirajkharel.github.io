@@ -28,6 +28,8 @@ One approach to identifying exported activities is manual, as described earlier.
 
 Observe that two activities are exported in the application.
 
+**<u>Note: The vulnerable application discussed below is available on my [Github Repo](https://github.com/nirajkharel/IntentInjection)</u>**
+
 ```bash
 dz> run app.activity.info -a com.root3d.intentinjection
 Attempting to run shell module
