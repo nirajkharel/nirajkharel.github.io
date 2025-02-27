@@ -127,7 +127,7 @@ The code block `intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);` might be needed
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/android-bug-5.png">  
 
 
-Until now they would treat this issue as Low or Medium because its just an open redirection. It might be the good idea to report until now if you have no option to login or register into the application. Example if the application needs a valid government document of hulululu country. 
+Until now they would treat this issue as Low or Medium because its just an open redirection. It might be the good idea to report until now if you have no option to login or register into the application. Example if the application needs a valid government document of a particular country. 
 
 If you can log in or register into the application, and if any of the activities are vulnerable to intent injection and open redirection, you can probably exfiltrate the user's session cookie through the vulnerable application. Why? Because it sends a GET request to the arbitrary URL with the session cookie in the request header. Believe me, most applications do this. To prevent the application from sending the session cookie, the URL needs to be loaded using the method **loadUrlWithoutCookies(view, url);**, which is rarely implemented in applications.
 
