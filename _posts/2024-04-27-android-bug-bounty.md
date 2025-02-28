@@ -8,7 +8,7 @@ render_with_liquid: false
 ---
 
 
-Last month, I explored bug bounties on Android applications and discovered couple of issues issues related to Exported Activities and Intent Injections. These vulnerabilities were either unreported or reported in a manner that underestimated their impact, often categorising them as low severity or informational.
+Last month, I discovered a couple of issues related to Exported Activities and Intent Injections. These vulnerabilities were either unreported or reported in a manner that underestimated their impact, often categorising them as low severity or informational.
 
 In this blog, I aim to share insights into one of the methods for identifying such issues and strategies to escalate their impact to High or Critical severity. Please note that this is not the only approach but rather one specific type of vulnerability I focused on during my tests.
 
@@ -40,7 +40,7 @@ Package: com.root3d.intentinjection
     Permission: null
 ```
 
-So what does an exported activity mean? An exported activity means it can be accessed by any other application. Is it vulnerable right now? Maybe, maybe not. However, if you reported this as an issue, it would likely be categorised as either **informative/NA** or **low severity** if you're lucky.
+So, what does an exported activity mean? An exported activity means it can be accessed by any other application. Is it vulnerable right now? Maybe, maybe not. Reporting this issue might result in it being categorised as **informational/NA** or, at best, **low** severity.
 
 So how can you leverage the impact for this? Navigate to the corresponding activity, on this case, **PrivacyPolicy**.
 
@@ -48,7 +48,7 @@ So how can you leverage the impact for this? Navigate to the corresponding activ
 
 **Here comes the intent injection to open redirection part. But how?**
 
-As you read about open redirection in mobile applications, it typically refers to a web application or website-based attack or vulnerability. But how can this be possible in a mobile application? This means we need to check if the web URL or web application has been referenced or integrated into the mobile application, often through the almighty **WebView**. Always check if a WebView has been implemented. You can either search for the keyword **webview** or see if it has been initialised, as shown in **highlight-1**.
+As you read about open redirection in mobile applications, it typically refers to a web application or website-based attack or vulnerability. How is this possible in a mobile applications? It might be possible if we check whether the web URL or web application has been referenced or integrated into the mobile application, often through the almighty **WebView**. Always check if a WebView has been implemented. You can either search for the keyword **webview** or see if it has been initialised, as shown in **highlight-1**.
 
 ```java
 private WebView webview;
@@ -163,7 +163,7 @@ But do not just end here because you haven't done anything with the session cook
 **On this way you can show the maximum impact on the application.**
 
 Also, its not always necessary that the paramter like **privacy-url** will be available on the source code. While decompiling the application sometime it references to Strings.xml file. If so, you can check for the parameters on there. And sometimes the strings will be defined on files like **Constants.java**. But if you navigate on to that file, you will file some random characters. One of the option could be doing brute force on the adb command to identify the correct parameter.
-Example, most of the time URLs for webview would be referenced by usual parameter like 'url, path, link, redirect, page-url, redirect-url, navigate'. Just prepare the list of the parameters and craft a bruteforce script.
+Example, most of the time URLs for webview would be referenced by usual parameter like **url, path, link, redirect, page-url, redirect-url, navigate**. Just prepare the list of the parameters and craft a bruteforce script.
 
 Here is the sample one, but check if it works.
 ```python
