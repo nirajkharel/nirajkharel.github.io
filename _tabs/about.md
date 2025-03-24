@@ -4,13 +4,13 @@ icon: fas fa-info-circle
 order: 4
 ---
 
-# NIRAJ KHAREL | CRTO | CRTP
+# NIRAJ KHAREL | CRTO | CRTE | CRTP | CMPen (iOS & Android)
 **thenirajkharel@gmail.com**<br>
 **Kathmandu, Nepal**
 
 ### PROFESSIONAL SUMMARY
 
-Experienced penetration tester with over 4 years of work exposure in Offensive side of Cyber Security. Has performed Security Assessment on more than 50 different national and international organizations including Financial Institutions, Government Bodies, Private Limiteds,Payment Gateways and INGOs.
+Experienced penetration tester with over 5 years of work exposure in Offensive side of Cyber Security. Has performed Security Assessment on more than 50 different national and international organizations including Financial Institutions, Government Bodies, Private Limiteds,Payment Gateways and INGOs.
 
 ### SKILLS
 - Web, Network and Mobile Application VA and Exploitation.
@@ -81,7 +81,10 @@ School Leaving Certificate (SLC)
 
 ### CERTIFICATIONS
 Certified Red Team Operator (CRTO)<br>
+Certified Reed Team Expert (CRTE)<br>
 Certified Red Team Professional (CRTP)<br>
+Certified Mobile Pentester - Android (CMPen Android)<br>
+Certified Mobile Pentester - iOS (CMPen iOS)<br>
 Certified Ethical Hacker (Practical)<br>
 Tenable.io Certificate of Proficiency<br>
 Autopsy Forensic Basics<br>
