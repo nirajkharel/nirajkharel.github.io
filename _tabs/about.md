@@ -4,7 +4,8 @@ icon: fas fa-info-circle
 order: 4
 ---
 
-# NIRAJ KHAREL | CRTO | CRTE | CRTP | CMPen (iOS & Android)
+# NIRAJ KHAREL 
+### CRTO | CRTE | CRTP | CMPen (iOS & Android)
 **thenirajkharel@gmail.com**<br>
 **Kathmandu, Nepal**
 
