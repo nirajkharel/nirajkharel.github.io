@@ -61,10 +61,16 @@ Similar technique can be used on IPv6Fuscation where the shellcodes are grouped 
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-3.png">
 
 ### MACFuscation
+MACFuscation consists of the techqniue of converting raw shellcode into MAC addresses `aa:bb:cc:dd:ee:ff`. Each `aa, bb` represents one byte in hexadecimal. Since a typical MAC address contains 6 bytes, therefore the shellcode is grouped into 6 bytes and then converted into the MAC addresses. If its not the multiple of 6 bytes, padding is used on it.
+
+We can use the same tool to convert our shellcode into MAC address.
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-4.png">
 
 ### UUIDFuscation
+UUIDFuscation is a technique to obfuscate raw shellcode into UUID format `550e8400-e29b-41d4-a716-446655440000`. The raw shellcode is grouped into 16 bytes chunks as each UUID represents 16 bytes. When the shellcode is not muliple of 16, padding can bse used.
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-5.png">
 
-## HellShell
+Since now we have explored at least 3 types of obfuscation techniques, lets move towards a practical demonstrations. But before that one important thing to understand and required is that we need to deobfuscate the payload as well. The **deobfuscation** is usually done before allocating the shellcode into virtual memory. We will explore one of the technique of **deobfuscation** on the demonstration itself.
 
 ## Sliver Shellcode Generation
 
