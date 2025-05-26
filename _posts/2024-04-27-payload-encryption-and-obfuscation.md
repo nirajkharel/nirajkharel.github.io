@@ -460,7 +460,7 @@ Build the malicious executable using Visual Studio.
 Using ThreatCheck to verify if it identifies any signatures based on the Windows Defender. 
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-12.png">
 
-Execute the payload on the completely patched Windows 11 machine and observe that were are able to successfully bypass Windows Defender and Real Time Protection and eventually were able to get the beacon on the C2 server.
+Execute the payload on the completely patched Windows 11 Pro 22H2 machine and observe that were are able to successfully bypass Windows Defender and Real Time Protection and eventually were able to get the beacon on the C2 server.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/payload-obfuscation-13.png">
 
 
