@@ -1,7 +1,7 @@
 ---
 title: Offensive C - Shellcode Encryption and Staging
 author: nirajkharel
-date: 2025-05-24 14:10:00 +0800
+date: 2025-06-01 14:10:00 +0800
 categories: [Red Teaming, Offensive Programming]
 tags: [Red Teaming, Offensive Programming]
 render_with_liquid: false
