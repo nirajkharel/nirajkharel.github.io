@@ -27,20 +27,18 @@ AES Encryption needs the block size to be 128-bits for both input and output, on
 Below is an example which shows how we can use a tool like Supernova to encrypt the payload.
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/aes-encryption-supernova-1.png">
 
-We will be using HellShell to encrypt the payload using AES and it also provides us the code chunk that can be used with the decryption along with the cipertext, key and IV. HellShell uses Windows **bcrypt.h** header to perform AES encryption and decryption. Below listed functions are the major one that is used to decrypt the encrypted blob. I would suggest you to go through each of the function from the link below.
+We will be using HellShell to encrypt the payload using AES and it also provides us the code chunk that can be used with the decryption along with the cipertext, key and IV. HellShell uses Windows **bcrypt.h** header to perform AES encryption and decryption. Below listed functions are the major one that is used to decrypt the encrypted blob. I would suggest you to go through each of the function from the link below.     
 
-<div align="center">
+| Function | Description |
+|----------|-------------|
+| [BCryptOpenAlgorithmProvider](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptclosealgorithmprovider) | Loads and initializes a CNG provider. |
+| [BCryptGetProperty](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgetproperty) | Retrieves the value of a named property for a CNG object. |
+| [BCryptSetProperty](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptsetproperty) | Sets the value of a named property for a CNG object. |
+| [BCryptGenerateSymmetricKey](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgeneratesymmetrickey) | Creates a key object for symmetric encryption. |
+| [BCryptDecrypt](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptdecrypt) | Decrypts a block of data. |
+| [BCryptDestroyKey](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptdestroykey) | Destroys a key. |
+| [BCryptCloseAlgorithmProvider](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptclosealgorithmprovider) | Closes an algorithm provider. |
 
-| Functions| Uses |
-|----------|----------|
-| [BCryptOpenAlgorithmProvider](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptclosealgorithmprovider)   | Loads and initializes a CNG provider.  |
-| [BCryptGetProperty](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgetproperty) | Retrieves the value of a named property for a CNG object.  |
-|[BCryptSetProperty](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptsetproperty) | Sets the value of a named property for a CNG object.
-|[BCryptGenerateSymmetricKey](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgeneratesymmetrickey) | Creates a key object for use with a symmetrical key encryption algorithm from a supplied key.
-|[BCryptDecrypt](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptdecrypt) | Decrypts a block of data.
-|[BCryptDestroyKey](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptdestroykey) | Destroys a key.
-|[BCryptCloseAlgorithmProvider](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptclosealgorithmprovider) | Closes an algorithm provider.
-</div>
 
 We will go through the brief of each one of the function while we decrypt our msfvenom shellcode. For now, lets start with Stage I.
 
@@ -72,7 +70,7 @@ Note that the Helshell provides us the code to decrypt and the encrypted blob as
 
 The above decryption code consists of multiple functions as listed above. 
 
-### Bcrypt.lib and Headers
+**Bcrypt.lib and Headers**
 Since the required functions are located on Bcrypt.lib library, it needs to be imported first. Since Bcrypt.lib is a native Windows system DLL. NT_SUCCESS is used to determine whether it is loaded successfully.
 
 Similarly, the size of the key and IV are determined as 32 and 16 bytes i.e. 256 bits and 128 bits. This typically means that AES-256 key size is being used and each block size is always 16 bytes (128 bits).
