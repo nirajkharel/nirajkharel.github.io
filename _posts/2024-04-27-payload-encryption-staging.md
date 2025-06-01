@@ -387,6 +387,8 @@ At the end the pointers are set for the data accessed through the server and the
 
 Now since we have most of our functions ready i.e, reading the encrypted shellcode and decrypting the shellcode, we can proceed towards the shellcode injection. The process is same as we did it on the previous blog which consists of allocating the virtual memory space, copying the shellcode into the allocated memory, defining the memory address to be executable and executing the shellcode using CreateThread.
 
+## Stage IV - Injection
+
 We can either create a seperate function to perform the shellcode injection or use the main function as well. The main function calls the above **ShellcodeFromUrl** and saves the output on the variables **Size** and **Bytes**. Next, the **SimpleDecryption** is called using the appropriate key, IV and the above **Size** and **Bytes**. The **SimpleDecryption** function in itself calls the **InstallAesDecryption** function and provides decrypted shellcode and its size as variables **pPlaintext** and **dwPlainSize**. Once that is gained, shellcode injection is performed.   
 
 ```c
