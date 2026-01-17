@@ -9,7 +9,7 @@ render_with_liquid: false
 
 
 # Threat Hunting Basics
-Threat hunting is the proactive practice of searching for hidden threats or malicious activity within an organization’s environment, even before alerts are triggered. Its main goal is to uncover attacks early, reducing the dwell time, which is the period an adversary remains undetected in the network.
+Threat hunting is the proactive practice of searching for hidden threats or malicious activity within an organization’s environment, before or after alerts are triggered. Its main goal is to uncover attacks early, reducing the dwell time, which is the period an adversary remains undetected in the network.
 
 **Dwell time** refers to the period an attacker remains undetected in your environment. Minimizing dwell time is critical because even a few hours of undetected activity can lead to stolen credentials, lateral movement, and data exfiltration.
 
@@ -199,7 +199,7 @@ These events form the foundation for **behavioral threat detection**, enabling h
 
 ## Conclusion
 
-Threat hunting is both an **offensive and defensive** approach for identifying anamolies. By combining intelligence driven, data driven, and knowledge based approaches, hunters can proactively detect sophisticated adversaries. Coupled with robust telemetry, proper IOC correlation, and MITRE ATT&CK mapping, organizations can significantly reduce dwell time and strengthen their security posture.  
+Threat hunting is both an **offensive and defensive** approach for identifying anomalies. By combining intelligence driven, data driven, and knowledge based approaches, hunters can proactively detect sophisticated adversaries. Coupled with robust telemetry, proper IOC correlation, and MITRE ATT&CK mapping, organizations can significantly reduce dwell time and strengthen their security posture.  
 
 With **visuals for the Kill Chain, IOC correlation, and ATT&CK mapping**, this guide can serve as both a conceptual framework and a practical roadmap for professional threat hunters.
 
