@@ -200,6 +200,3 @@ These events form the foundation for **behavioral threat detection**, enabling h
 ## Conclusion
 
 Threat hunting is both an **offensive and defensive** approach for identifying anomalies. By combining intelligence driven, data driven, and knowledge based approaches, hunters can proactively detect sophisticated adversaries. Coupled with robust telemetry, proper IOC correlation, and MITRE ATT&CK mapping, organizations can significantly reduce dwell time and strengthen their security posture.  
-
-With **visuals for the Kill Chain, IOC correlation, and ATT&CK mapping**, this guide can serve as both a conceptual framework and a practical roadmap for professional threat hunters.
-
