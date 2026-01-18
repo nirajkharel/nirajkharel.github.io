@@ -197,6 +197,175 @@ Sysmon provides high fidelity telemetry for endpoint monitoring. Key event IDs f
 
 These events form the foundation for **behavioral threat detection**, enabling hunters to detect activity beyond simple signatures or IOCs.
 
+## Using Splunk for Endpoint Threat Hunting
+
+The goal here is not to learn Splunk as a product, but to understand **how Splunk can be used to support endpoint threat hunting** by querying, correlating, and pivoting across endpoint data.
+
+### SPL in the Context of Threat Hunting
+
+Splunk uses **Search Processing Language (SPL)** to retrieve and process data. From a threat hunter’s perspective, SPL is simply a way to ask structured questions of endpoint logs.
+
+Some SPL concepts are fundamental when hunting:
+
+- **Index**  
+  All data in Splunk is stored in indexes. Selecting the correct index is the first scoping decision in any hunt. An overly broad index introduces noise, while an overly narrow one can cause blind spots.
+
+- **Sourcetype**  
+  Sourcetypes describe the kind of data being searched, such as Windows Security logs, Sysmon logs, or PowerShell logs. Using the correct sourcetype helps narrow the dataset early in the search.
+
+- **Filters (`field=value`)**  
+  Filters specify conditions events must meet. Hunters use filters to isolate behaviors of interest from normal endpoint activity.
+
+- **Pipes (`|`)**  
+  Pipes pass the output of one command to another. This allows raw event searches to evolve into analytical queries.
+
+- **Commands**  
+  Commands define how Splunk processes retrieved events. Commonly used commands during hunts include:
+  - `table` to format results
+  - `stats` to aggregate behavior
+  - `sort` and `top` to identify outliers
+  - `dedup` to remove duplicate events
+
+- **Raw vs transforming searches**  
+  Raw searches return individual events and are useful during early investigation. Transforming searches summarize data and help identify patterns or anomalies.
+
+
+### Basic Endpoint Oriented SPL Examples
+
+A simple Windows Security log search might look like:
+
+```
+index=main sourcetype="WinEventLog:Security" host="CLIENT" EventCode=3
+```
+
+This retrieves specific events from a single endpoint. Such searches are typically used to gain initial visibility before refining the hunt.
+
+PowerShell activity is a frequent focus during endpoint hunts due to its extensive abuse by attackers. Script block logging provides deeper visibility:
+
+```
+index=main host="CLIENT" EventCode=4104
+| search Message="Invoke-WebRequest" OR Message="iwr" OR Message="iex"
+```
+
+This query looks for PowerShell commands commonly used to download or execute payloads. The intent is not to immediately label this activity as malicious, but to identify executions that warrant closer inspection.
+
+
+### Building Queries Using Hypotheses
+
+Effective threat hunting starts with a hypothesis, not a query.
+
+For example:
+
+> Attackers are executing suspicious scripts from temporary directories.
+
+This hypothesis can be explored by searching for:
+- PowerShell scripts executed within a defined timeframe
+- Files launched from `C:\Windows\Temp` or `C:\Temp`
+- Script files created in temporary locations shortly before execution
+
+Splunk allows hunters to explore each of these paths independently and pivot as new evidence emerges.
+
+### Common Endpoint Hunting Queries
+
+#### New User Creation
+
+Unexpected user creation events may indicate persistence or unauthorized access.
+
+```
+index=main source="WinEventLog:Security" EventCode=4720
+```
+These events are typically correlated with subsequent logons, privilege changes, or unusual account usage.
+
+
+#### Brute Force Authentication Attempts
+
+Brute force attacks often appear as multiple failed logons followed by a successful one in a short period.
+
+```
+index=main (EventCode=4625 OR EventCode=4624) | stats count(eval(EventCode=4625)) as Failure, count(eval(EventCode=4624)) as Success by ComputerName, Account_Name | where Failure > 5 AND Success > 0 | table _time, Account_Name, Success, Failure
+```
+
+This query aggregates authentication behavior by account and system, helping identify potential credential compromise.
+
+#### Unexpected Network Connections
+
+Outbound connections from endpoints can reveal command-and-control traffic, lateral movement, or data exfiltration.
+```
+index=main EventCode=3
+| table _time, ComputerName, SourceIp, DestinationIp, DestinationHostname, DestinationPort, Image
+```
+During a hunt, suspicious destinations or uncommon parent processes become pivot points for deeper analysis.
+
+
+#### Suspicious PowerShell Activity
+
+Encoded PowerShell commands are often used to obscure malicious intent:
+
+```
+index=main EventCode=4104
+| search Message="encoded"
+```
+Download and execution patterns are also common indicators:
+```
+index=main EventCode=4104
+| search Message="Invoke-WebRequest" OR Message="iwr" OR Message="iex"
+```
+These queries surface PowerShell activity that may be associated with payload staging or execution.
+
+### Hunting for Persistence on Endpoints
+
+Persistence mechanisms tend to leave durable artifacts, making them valuable hunting targets.
+
+#### Scheduled Tasks and Services
+
+```
+index=main (EventCode=7045 OR EventCode=4698)
+```
+This query identifies newly created services or scheduled tasks, which attackers frequently use to maintain access.
+
+#### Registry-Based Persistence
+```
+index=main EventCode=12 EventType=CreateKey TargetObject="HKLM\System\CurrentControlSet\Services\*"
+| table _time, User, Image, TargetObject
+```
+This surfaces registry keys related to service creation. Unusual service names, paths, or user contexts often warrant further investigation.
+
+### Practical Considerations When Hunting in Splunk
+
+- Ensure the selected time range aligns with the scope of the hunt.
+- Format results using `table` to make manual analysis easier.
+- Use `stats`, `count`, `sort`, and `top` to summarize behavior.
+- Use `where` to refine results and `eval` to create or rename fields when needed.
+
+### Example Endpoint Hunt Workflow
+
+Consider a scenario where an attacker uses PowerShell to download malware using encoded commands. An initial query using Sysmon process creation logs might be:
+
+```
+index=sysmon EventCode=1 Image="powershell" CommandLine="enc"
+```
+Once suspicious executions are identified, the hunt can be refined:
+```
+index=sysmon EventCode=1 Image="powershell" CommandLine="update.ps1"
+```
+Correlating with Windows process creation events adds context:
+```
+index=wineventlog EventCode=4688 New_Process_Name="powershell" Command_Line="update.ps1"
+```
+Formatting the results improves readability:
+```
+index=sysmon EventCode=1 CommandLine="update.ps1"
+| table _time, Computer, Image, CommandLine, Hashes
+```
+Finally, hashes extracted from these events can be used to pivot further:
+```
+index=sysmon EventCode=1 Hashes="<hash>"
+| table _time, Computer, Image, CommandLine, User, Hashes
+```
+Each step narrows the scope of the hunt and helps build a clearer picture of attacker behavior on the endpoint.
+
 ## Conclusion
 
 Threat hunting is both an **offensive and defensive** approach for identifying anomalies. By combining intelligence driven, data driven, and knowledge based approaches, hunters can proactively detect sophisticated adversaries. Coupled with robust telemetry, proper IOC correlation, and MITRE ATT&CK mapping, organizations can significantly reduce dwell time and strengthen their security posture.  
+
+
