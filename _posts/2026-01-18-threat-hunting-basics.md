@@ -9,7 +9,7 @@ render_with_liquid: false
 
 
 # Threat Hunting Basics
-Threat hunting is the proactive practice of searching for hidden threats or malicious activity within an organization’s environment, before or after alerts are triggered. Its main goal is to uncover attacks early, reducing the dwell time, which is the period an adversary remains undetected in the network.
+Threat hunting is the proactive practice of searching for hidden threats or malicious activity within an organization’s environment, before or sometimes after alerts are triggered. Its main goal is to uncover attacks early, reducing the dwell time, which is the period an adversary remains undetected in the network.
 
 **Dwell time** refers to the period an attacker remains undetected in your environment. Minimizing dwell time is critical because even a few hours of undetected activity can lead to stolen credentials, lateral movement, and data exfiltration.
 
@@ -362,7 +362,134 @@ Finally, hashes extracted from these events can be used to pivot further:
 index=sysmon EventCode=1 Hashes="<hash>"
 | table _time, Computer, Image, CommandLine, User, Hashes
 ```
-Each step narrows the scope of the hunt and helps build a clearer picture of attacker behavior on the endpoint.
+## Threat Hunting with ELK
+
+Most threat hunting activities eventually come down to one thing: **how effectively you can search and correlate telemetry**. In environments where ELK is used as the central logging platform, understanding how its components work together and how to query them properly becomes critical for successful hunts.
+
+### ELK Stack in a Threat Hunting Context
+
+The ELK stack is made up of three primary components, each playing a distinct role in the hunting workflow:
+
+- **Elasticsearch**  
+  Acts as the backend where logs are indexed, stored, and searched. This is where the actual hunting happens fast searches, correlations, and aggregations over large datasets.
+
+- **Logstash**  
+  Responsible for ingesting, parsing, and transforming logs before they are indexed. Proper parsing here directly affects hunt quality; poorly structured fields make effective hunting difficult.
+
+- **Kibana**  
+  The interface hunters interact with used for searching, filtering, visualizing events, and building dashboards.
+
+In most environments, **Beats** are also involved:
+- **Winlogbeat, Filebeat**, etc., are used to ship logs from endpoints and servers into the stack.
+- Conceptually, Beats in ELK serve a similar role to **Splunk Forwarders** in Splunk-based setups.
+
+From a hunter’s perspective, the key takeaway is this:  
+*The quality of your hunts depends heavily on what logs are collected and how well they are structured.*
+
+
+### Searching in ELK
+
+ELK supports multiple query languages, but two are especially useful for threat hunting: **KQL** and **EQL**.
+
+### Kibana Query Language (KQL)
+
+KQL is commonly used for **quick, interactive searches** and filtering during exploratory hunts.
+
+Key characteristics:
+- Simple, readable syntax
+- Field-based matching
+- Fast for ad‑hoc analysis
+
+Common features:
+- **Field matching** using `:`  
+- **Boolean logic** (`AND`, `OR`, `NOT`)
+- **Wildcards** for partial matches
+- Easy field selection for narrowing down results
+
+**Best practices for hunting with KQL:**
+- Prefer **field-based searches** over full-text searches
+- Save commonly used hunt queries
+- Start broad, then progressively narrow down
+
+**Examples:**
+```text
+event.code:11 AND "*ps1*"
+winlog.channel:"Security" AND (winlog.event_id:4688 OR winlog.event_id:4698)
+```
+KQL is ideal when you’re validating hypotheses, pivoting quickly, or trying to understand what “normal” looks like before drilling deeper.
+Elasticsearch Query Language (EQL)
+EQL is designed for event correlation and multi-step attack detection, making it extremely powerful for advanced threat hunting.
+Where EQL shines:
+- Correlating related events
+- Detecting attacker tradecraft across time
+- Modeling attack chains instead of single events
+- Basic structure:
+  - event_type where condition. Example:
+    ```
+    process where process.name == "powershell.exe"
+    ```
+
+EQL supports logical operators such as:
+```
+==, !=, <, >, and, or, not
+```
+Sequences
+- Sequences allow hunters to express attacker behavior as “this happened, then that happened”:
+  ```
+  sequence by host.name with maxspan=5m
+  [process where process.name == "cmd.exe"]
+  [network where destination.port == 4444]
+  ```
+
+This is particularly useful for detecting living-off-the-land attacks, lateral movement, and command-and-control activity.
+
+#### Common Hunt Queries (Starting Points)
+Some common patterns hunters often look for include:
+- Suspicious Account Activity
+  `event.code:4848`
+- Suspicious Process Behavior
+  `event.code:1`
+- Unexpected Outbound Network Connections 
+  `event.code:3`
+- Suspicious PowerShell Activity
+  - Encoded commands
+    `(event.code:4103 OR event.code:4104) AND message:"*encoded*"`
+  - Downloads and execution
+    `(message:"*Invoke-WebRequest*" OR message:"*iwr*" OR message:"*iex*")`
+- Persistence Mechanisms
+  - Scheduled tasks
+    `event.code:4688 AND "schtasks.exe"`
+  - Malicious services
+    `event.code:4697 OR event.code:7045`
+
+These queries are not meant to be definitive detections, but rather starting points for investigation and pivoting.
+
+**Example Hunt: Credential Access via SAM Dump**
+Consider a scenario where an attacker dumps the SAM database to extract password hashes and later perform a Pass‑the‑Hash attack.
+- Step 1: Identify Relevant Logs
+  - Windows Security Logs
+  - PowerShell Script Block Logs
+  - Sysmon Logs
+- Step 2: Build Initial Queries
+  ```
+  winlog.event_data.Image:"*reg.exe*" AND
+  winlog.event_data.CommandLine:"*save*" AND
+  winlog.event_data.CommandLine:"*\\HKLM\\SAM*"
+  ```
+- Step 3: Analyze and Pivot
+  - If you observe suspicious activity, pivot into related areas:
+    - Credential dumping tools
+      `winlog.event_data.CommandLine:("*procdump.exe*" OR "*mimikatz.exe*")`
+    - NTLM-based authentication
+      `event.code:4624 AND message:"*ntlm*"`
+    - Lateral movement tools
+    ```
+    winlog.event_data.CommandLine:("*wmic.exe*" OR "*psexec.exe*" OR "*smbexec.py*")
+    AND NOT winlog.event_data.User:"*SYSTEM*"
+    Suspicious parent-child process relationships
+    winlog.event_data.ParentImage:"*wmiprvse.exe*"
+    AND winlog.event_data.CommandLine:("*cmd.exe*" OR "*powershell.exe*")
+    ```
 
 ## Conclusion
 
