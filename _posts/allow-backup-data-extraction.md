@@ -1,7 +1,7 @@
 ---
 title: allowBackup=true — Extracting App Data With adb backup
 author: nirajkharel
-date: 2026-06-05 14:30:00 +0800
+date: 2026-05-05 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
 tags: [Mobile Pentesting, Android, Backup, Data Disclosure]
 render_with_liquid: false
