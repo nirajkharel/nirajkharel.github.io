@@ -8,7 +8,7 @@ render_with_liquid: false
 ---
 
 
-The file write primitive is the inverse of the file read primitive. Instead of getting bytes out of the target app's private storage, you get bytes in. It is rarer than the read primitive but when present is usually higher impact, because writing the right file overwrites session state, auth tokens, or feature-flag preferences that the app trusts.
+The file write primitive is an inverse of the file read primitive. Instead of getting bytes out of the target app's private storage, you get bytes in. It is rarer than the read primitive but when present is usually higher impact, because writing the right file overwrites session state, auth tokens, or feature-flag preferences that the app trusts.
 
 <h4>Vulnerable demo: <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a>. File: <code>android/app/src/main/java/com/vulnlab/app/activities/FileWriteActivity.java</code>.</h4>
 
