@@ -10,15 +10,29 @@ render_with_liquid: false
 
 `android:allowBackup` defaults to `true` if not specified in the manifest. The setting was designed for "user can restore their app data after factory reset". The side effect: `adb backup` can dump the app's entire data directory to a file on the user's machine, where the file is decryptable without root. For apps that store sensitive data in `/data/data/`, this is a data exfiltration vector that requires only USB debugging (which many users leave on).
 
-<h4>Demo: <a href="https://github.com/nirajkharel/AllowBackupLeak">Github Repo</a>.</h4>
+<h4>Vulnerable demo: <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a>. File: <code>android/app/src/main/AndroidManifest.xml</code> (allowBackup=true) and <code>android/app/src/main/java/com/vulnlab/app/activities/LoginActivity.java</code> (writes plaintext credentials into SharedPreferences).</h4>
 
 <br>**The pattern**
 
 ```xml
 <application
+    android:name=".VulnApplication"
+    android:label="VulnLabApp"
     android:allowBackup="true"
-    android:fullBackupContent="@xml/backup_rules"
     ...>
+```
+
+No `fullBackupContent` filter, no `dataExtractionRules`. Every file under `/data/data/com.vulnlab.app/` is in scope. Meanwhile `LoginActivity` happily stuffs the user's email, password, session token, and a production API key into `auth_prefs`:
+
+```java
+SharedPreferences prefs = getSharedPreferences(
+    VulnApplication.PREFS_AUTH, MODE_PRIVATE);
+prefs.edit()
+    .putString(VulnApplication.KEY_EMAIL,    email)
+    .putString(VulnApplication.KEY_PASSWORD, password)
+    .putString(VulnApplication.KEY_TOKEN,    fakeToken)
+    .putString(VulnApplication.KEY_API_KEY,  "sk-prod-8f3k2j9x0q1w5e6r")
+    .apply();
 ```
 
 `allowBackup="true"` (or absent — same thing) enables both the legacy Key-Value backup and the modern Auto Backup. `fullBackupContent` lets the developer opt out of specific subdirectories, but most apps do not bother — they ship with `allowBackup="true"` and no `fullBackupContent` filter.
@@ -26,20 +40,20 @@ render_with_liquid: false
 <br>**The extraction command**
 
 ```bash
-adb backup -f target.ab -noapk com.target.app
+adb backup -f vulnlab.ab -noapk com.vulnlab.app
 ```
 
-The phone prompts the user to confirm. If they tap "Back up my data", `target.ab` is written to the host machine containing the encrypted (but with empty password) app data tarball. Convert to tar:
+The phone prompts the user to confirm. If they tap "Back up my data", `vulnlab.ab` is written to the host machine containing the encrypted (but with empty password) app data tarball. Convert to tar:
 
 ```bash
-dd if=target.ab bs=24 skip=1 | openssl zlib -d > target.tar
+dd if=vulnlab.ab bs=24 skip=1 | openssl zlib -d > vulnlab.tar
 # Or with abe.jar:
-java -jar abe.jar unpack target.ab target.tar
+java -jar abe.jar unpack vulnlab.ab vulnlab.tar
 ```
 
-Inside the tar: `apps/com.target.app/db/`, `apps/com.target.app/sp/`, `apps/com.target.app/f/` — the full data dir contents. Read `auth.xml`, dump `main.db`, harvest tokens.
+Inside the tar: `apps/com.vulnlab.app/db/`, `apps/com.vulnlab.app/sp/`, `apps/com.vulnlab.app/f/` — the full data dir contents. `apps/com.vulnlab.app/sp/auth_prefs.xml` is the prize: plaintext password, plaintext session token, plaintext API key.
 
-<br>**Realism — when this actually matters**
+<br>**Realism: when this actually matters**
 
 The user has to tap "Back up my data" on the device. That is the realism gap. Three scenarios where it bridges:
 
@@ -77,9 +91,9 @@ If present, open the rules:
 </full-backup-content>
 ```
 
-Good apps exclude everything sensitive. Many apps have `fullBackupContent` for the sake of having it and exclude one file while shipping ten others unrestricted.
+Good apps exclude everything sensitive. Many apps have `fullBackupContent` for the sake of having it and exclude one file while shipping ten others unrestricted. VulnLabApp doesn't even bother with the filter — every file is in scope.
 
-<br>**The exfiltration via attacker app — no ADB required**
+<br>**Exfiltration without ADB**
 
 `adb backup` is the standard path, but some apps and OEM SDKs expose backup-like APIs that can be triggered without ADB:
 
@@ -96,7 +110,7 @@ For the bug bounty, the standard `adb backup` PoC is sufficient. The triage unde
 Bounty triagers downgrade `allowBackup=true` findings on apps that "obviously do not store sensitive data". The way to keep the severity is to demonstrate that this specific app's data dir contains sensitive content:
 
 - Pull the backup.
-- Show contents of `auth.xml` / `main.db` / `session.json` with sensitive fields visible.
+- Show contents of `auth_prefs.xml` / `main.db` / `session.json` with sensitive fields visible.
 - Frame the impact as account takeover or PII disclosure, not "user data can be backed up".
 
 The framing flip moves the report from informational to medium-or-high.
@@ -123,6 +137,17 @@ The cleanest fix. For apps that want backup for non-sensitive prefs:
 ```
 
 Exclude everything by default and include only what the user needs to restore (UI preferences, accessibility settings).
+
+The naive fix that does not fix it: excluding one obviously-named file while leaving the rest of the data dir in scope.
+
+```xml
+<!-- This is what most apps ship. It does not work. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="auth.xml" />
+</full-backup-content>
+```
+
+`shared_prefs/` usually contains five or six files, not one. `auth.xml` is excluded. `user.xml`, `prefs.xml`, `oauth.xml`, `tokens.xml`, `analytics.xml` are not. The session token has been migrated three times in the app's lifetime and lives in two of those today. The exclude is symbolic, not effective. The right pattern is the inverse — exclude everything, then include only the specific non-sensitive files. I have seen the broken pattern in two banking apps and one e-commerce app in the last year. The auth file was excluded; the session token had been migrated to a separately-named file in a refactor and the backup happily included it.
 
 For Android 12+ targets, `android:dataExtractionRules` in API 31 is the modern replacement that lets you control device-to-device transfers separately from cloud backups.
 
