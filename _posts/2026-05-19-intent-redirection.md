@@ -12,7 +12,11 @@ Intent redirection is the bug that explains why a properly permission protected 
 
 The Parcelable post covered one shape of this. There is a more general version — apps that take a regular `Intent` (not specifically a Parcelable extra), construct a new Intent based on it, and forward it. The forwarding may look correct in code review because the developer is filtering some fields. Almost always, they are filtering the wrong fields.
 
-<h4>Vulnerable demo: <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a>. File: <code>android/app/src/main/java/com/vulnlab/app/activities/IntentRedirectorActivity.java</code>.</h4>
+You can find the vulnerable application designed for this blog on <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a>. <br> 
+**Vulnerable Files**
+```bash
+android/app/src/main/java/com/vulnlab/app/activities/IntentRedirectorActivity.java
+```
 
 <br>**The pattern**
 
@@ -115,6 +119,8 @@ public class MainActivity extends AppCompatActivity {
     }
 }
 ```
+
+<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-redirection-1.png">
 
 The trick is knowing what extras the downstream activity reads. Two ways to find that:
 

@@ -54,7 +54,7 @@ settings.setAllowFileAccessFromFileURLs(true);
 settings.setAllowUniversalAccessFromFileURLs(true);
 ```
 
-`setAllowFileAccess(true)` is the default on most apps. It lets the WebView load files from the filesystem at all. `setAllowFileAccessFromFileURLs(true)` defaults to `false` on API 16+, but a surprising number of apps explicitly enable it because some old code copy-pasted from an OAuth tutorial needed it. `setAllowUniversalAccessFromFileURLs(true)` is the most dangerous of the three. It allows JavaScript loaded from a `file://` URL to read other origins, including remote ones.
+`setAllowFileAccess(true)` is the default on most apps. It lets the WebView load files from the filesystem at all. `setAllowFileAccessFromFileURLs(true)` defaults to `false` on API 16+, but the application might enable it depending upon their needs. `setAllowUniversalAccessFromFileURLs(true)` is the most dangerous of the three. It allows JavaScript loaded from a `file://` URL to read other origins, including remote ones.
 
 If the first one is on and the WebView accepts arbitrary URLs from your intent extra, you can read files inside the app's private data directory directly:
 
@@ -62,6 +62,8 @@ If the first one is on and the WebView accepts arbitrary URLs from your intent e
 adb shell am start -n com.vulnlab.app/.activities.WebViewActivity \
   --es url "file:///data/data/com.vulnlab.app/shared_prefs/auth_prefs.xml"
 ```
+
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/beyond-webview-1.png">
 
 The WebView renders the XML in its viewport. On a real device the user can see the file contents on screen, which is already enough to qualify as sensitive data exposure. For full exfiltration you need JavaScript running inside a `file://` origin that the vulnerable app's UID can actually open. Writing the script to the attacker app's own `getFilesDir()` does not work — `/data/data/<attacker_pkg>/` is UID-isolated, and VulnLabApp's process gets `EACCES` on the read. The reliable staging path is shared external storage.
 
@@ -95,7 +97,7 @@ On apps targeting API 29+ with strict scoped storage, the `/sdcard/Download` wri
 
 In the report this lands as a different finding tier from cookie exfil. You are not stealing a session, you are reading the app's persistent storage directly. The MASVS category is MSTG-STORAGE-2 — sensitive data exposure through local storage made reachable from a foreign caller. The impact ladder depends on what the target stored in `shared_prefs/` and what is in `databases/`; refresh tokens and PII set the upper bound.
 
-<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-injection-file-read.png">
+<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/beyond-webview-1.png">
 
 If `setAllowFileAccessFromFileURLs(false)` is set (the secure default), the cross-origin fetch fails. But notice: `setAllowFileAccess(true)` alone still lets you render a single file inside the WebView. On real targets this still leaks files that the WebView would normally not be allowed to load. Log files, downloaded HTML, cached web resources, because the app's own UI shows the WebView contents on screen at some point.
 
