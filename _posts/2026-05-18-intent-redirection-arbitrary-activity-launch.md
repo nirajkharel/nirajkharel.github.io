@@ -92,6 +92,8 @@ Java.perform(function () {
 
 Fire the dispatcher with `adb shell am start -n com.vulnlab.app/.activities.IntentRedirectorActivity --es target FileWriteActivity --es filename "../shared_prefs/auth_prefs.xml" --es content "<map/>"` and watch the trace. If the second `[startActivity]` line shows `FileWriteActivity` being launched with the `filename` and `content` extras intact, the forwarding is wholesale and you have a finding.
 
+<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-redirection-internal-1.png">
+
 <br>**The attacker app**
 
 The dispatcher is exported. Any installed app can launch it with arbitrary extras:
@@ -120,6 +122,7 @@ public class MainActivity extends AppCompatActivity {
     }
 }
 ```
+<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-redirection-internal-2.png">
 
 The trick is knowing what extras the downstream activity reads. Two ways to find that:
 
