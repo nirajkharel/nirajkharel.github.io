@@ -1,22 +1,23 @@
 ---
-title: Intent Redirection - Reaching Internal Activities Through a Trusted Exported Activity
+title: Intent Redirection — Reaching Internal Activities Through a Trusted Exported Door
 author: nirajkharel
-date: 2026-05-19 14:30:00 +0800
+date: 2026-05-18 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
 tags: [Mobile Pentesting, Android, Intent Redirection, Exported Activity]
 render_with_liquid: false
 ---
 
 
-Intent redirection is the bug that explains why a properly permission protected internal activity can still be reached by any installed third-party app. The reason is rarely the protection on the internal activity. It is the exported activity sitting in front of it that forwards traffic on without checking what it is forwarding.
+Intent redirection is the bug that explains why a properly-permission-protected internal activity can still be reached by any installed third-party app. The reason is rarely the protection on the internal activity. It is the exported activity sitting in front of it that forwards traffic on without checking what it is forwarding.
 
-The Parcelable post covered one shape of this. There is a more general version — apps that take a regular `Intent` (not specifically a Parcelable extra), construct a new Intent based on it, and forward it. The forwarding may look correct in code review because the developer is filtering some fields. Almost always, they are filtering the wrong fields.
+The Parcelable post covered one shape of this. There is a more general version, apps that take a regular `Intent` (not specifically a Parcelable extra), construct a new Intent based on it, and forward it. The forwarding may look correct in code review because the developer is filtering some fields. Almost always, they are filtering the wrong fields.
 
-You can find the vulnerable application designed for this blog on <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a>. <br> 
-**Vulnerable Files**
-```bash
-android/app/src/main/java/com/vulnlab/app/activities/IntentRedirectorActivity.java
-```
+<aside class="lab">
+  <p><strong>Vulnerable demo</strong> · <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a></p>
+  <ul>
+    <li><code>android/app/src/main/java/com/vulnlab/app/activities/IntentRedirectorActivity.java</code></li>
+  </ul>
+</aside>
 
 <br>**The pattern**
 
@@ -38,9 +39,9 @@ if (target != null) {
 }
 ```
 
-The developer thinks this is safe because `target` is a short class name that gets prefixed with the app's own package — it can only resolve to a class that already exists in the app. What they missed is `next.putExtras(incoming)` — every extra the attacker supplied is forwarded into the resolved activity, including extras that the internal activity reads for sensitive decisions.
+The developer thinks this is safe because `target` is a short class name that gets prefixed with the app's own package, it can only resolve to a class that already exists in the app. What they missed is `next.putExtras(incoming)`, every extra the attacker supplied is forwarded into the resolved activity, including extras that the internal activity reads for sensitive decisions.
 
-If `FileWriteActivity` reads `intent.getStringExtra("filename")` and writes it to disk without re-validating the caller, the attacker just told the dispatcher "route me to FileWriteActivity" and the dispatcher faithfully forwarded the `filename` and `content` extras to it. The same `IntentRedirectorActivity` also ships a `next_intent` Parcelable forwarder (Pattern 1 in the file) — same problem, but the attacker hands over a fully-formed Intent instead of a string.
+If `FileWriteActivity` reads `intent.getStringExtra("filename")` and writes it to disk without re-validating the caller, the attacker just told the dispatcher "route me to FileWriteActivity" and the dispatcher faithfully forwarded the `filename` and `content` extras to it. The same `IntentRedirectorActivity` also ships a `next_intent` Parcelable forwarder (Pattern 1 in the file), same problem, but the attacker hands over a fully-formed Intent instead of a string.
 
 <br>**Spotting the vulnerable shape**
 
@@ -54,7 +55,7 @@ next.setData(getIntent().getData());
 
 Each of those is forwarding attacker input to a downstream activity wholesale. If the downstream activity reads any extras for authorization decisions, identity binding, or URL loading, the exported dispatcher is your entry point.
 
-A second pattern — explicit but still vulnerable:
+A second pattern, explicit but still vulnerable:
 
 ```java
 Intent next = new Intent(this, PaymentConfirmActivity.class);
@@ -120,13 +121,11 @@ public class MainActivity extends AppCompatActivity {
 }
 ```
 
-<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-redirection-1.png">
-
 The trick is knowing what extras the downstream activity reads. Two ways to find that:
 
-The slow way — decompile each candidate downstream activity (`FileWriteActivity`, `ReflectionActivity`, `WebViewActivity`, etc.) and grep each for `getStringExtra` / `getIntExtra` / `getBooleanExtra`. The names of those extras are the levers you have available.
+The slow way, decompile each candidate downstream activity (`FileWriteActivity`, `ReflectionActivity`, `WebViewActivity`, etc.) and grep each for `getStringExtra` / `getIntExtra` / `getBooleanExtra`. The names of those extras are the levers you have available.
 
-The fast way — hook `getStringExtra` on the relevant activity classes and trigger the dispatcher with junk values. The log shows you exactly which extra names the activity asked for:
+The fast way, hook `getStringExtra` on the relevant activity classes and trigger the dispatcher with junk values. The log shows you exactly which extra names the activity asked for:
 
 ```javascript
 Java.perform(function () {
@@ -142,7 +141,7 @@ You launch the dispatcher once, the trace shows every extra key every downstream
 
 <br>**Three impact-escalation patterns**
 
-The "open the victim's profile" example above is the entry-level case — IDOR via dispatcher. The real impacts cluster into three buckets.
+The "open the victim's profile" example above is the entry-level case, IDOR via dispatcher. The real impacts cluster into three buckets.
 
 **Authentication bypass.** Internal activities often assume that being reached implies the user already passed the login screen. If `WalletActivity` checks no session state because in the normal flow you can only reach it after login, the attacker's dispatcher-forwarded launch bypasses the login screen entirely. The activity loads, the OnCreate runs, the API calls fire with the user's still-valid session token.
 
@@ -160,8 +159,8 @@ Second, the impact depends entirely on what extras the downstream activity reads
 
 <br>**Closing**
 
-Intent redirection is the bug that lets you reach activities the developer explicitly marked non-exported, with extras the developer thought only their own code would supply. The exported front door does not need to do anything dangerous itself — it just needs to forward what you gave it without checking. If you find a dispatcher / router / interstitial activity, the work is in finding the most sensitive downstream activity it can route to and the most useful extra it will forward into that activity.
+Intent redirection is the bug that lets you reach activities the developer explicitly marked non-exported, with extras the developer thought only their own code would supply. The exported front door does not need to do anything dangerous itself, it just needs to forward what you gave it without checking. If you find a dispatcher / router / interstitial activity, the work is in finding the most sensitive downstream activity it can route to and the most useful extra it will forward into that activity.
 
-The bounty triage on these usually lands at high or critical because the impact is direct on internal app state — not "redirect to my site" but "perform this action as the victim."
+The bounty triage on these usually lands at high or critical because the impact is direct on internal app state, not "redirect to my site" but "perform this action as the victim."
 
 Happy Hacking !!

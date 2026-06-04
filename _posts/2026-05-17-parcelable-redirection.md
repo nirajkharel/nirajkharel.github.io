@@ -182,7 +182,7 @@ startActivity(outer);
 
 The user's auth token lands at `attacker.example` because the internal activity ran its normal token-POST behaviour without ever checking who triggered it.
 
-<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/parcelable-redirection-2.png">
+<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/parcelable-redirection-1.png">
 
 <br>**Why static analysers miss this**
 
