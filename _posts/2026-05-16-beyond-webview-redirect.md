@@ -1,5 +1,5 @@
 ---
-title: Beyond the WebView Redirect — Three Escalations from a Single Intent Injection
+title: Beyond the WebView Redirect: Three Escalations from a Single Intent Injection
 author: nirajkharel
 date: 2026-05-16 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
