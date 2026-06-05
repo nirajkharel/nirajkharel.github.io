@@ -1,5 +1,5 @@
 ---
-title: Intent Redirection — Reaching Internal Activities Through a Trusted Exported Door
+title: Intent Redirection - Reaching Internal Activities Through a Trusted Exported Door
 author: nirajkharel
 date: 2026-05-18 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
@@ -122,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
     }
 }
 ```
-<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-redirection-internal-2.png">
+<img alt="" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-redirecton-internal-2.png">
 
 The trick is knowing what extras the downstream activity reads. Two ways to find that:
 
