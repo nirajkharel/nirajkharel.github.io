@@ -35,11 +35,11 @@ What each one gives the attacker:
 
 `setAllowFileAccess(true)`, the WebView can load `file://` URLs at all. If on, you can render any world-readable file on disk inside the WebView, or any file owned by the target app since the WebView itself runs as the target app. You see the content as rendered HTML/text.
 
-`setAllowFileAccessFromFileURLs(true)`, a page loaded from `file://` can make XHR / fetch requests to other `file://` URLs. Read one file via the WebView load, exfiltrate dozens via JavaScript in that page.
+`setAllowFileAccessFromFileURLs(true)`, a page loaded from `file://` can make XHR / fetch requests to other `file://` URLs. Read one file via the WebView load, exfiltrate data via JavaScript in that page.
 
 `setAllowUniversalAccessFromFileURLs(true)`, a page loaded from `file://` can make XHR / fetch requests to any origin. This is the one that lets your `file://`-loaded HTML POST stolen file contents to your `https://attacker.example/` endpoint without CORS getting in the way.
 
-The combination you want as an attacker is all three on. Many apps ship with two of the three because some old OAuth / WebView SDK code copy-pasted the snippet that turns them on.
+The combination you want as an attacker is all three on. 
 
 <br>**Spotting it in a decompile**
 
@@ -82,11 +82,9 @@ Java.perform(function () {
 });
 ```
 
-Calling the (abstract) getters *on the real instance* dispatches virtually to the concrete subclass, so you get the true values — that is the difference between *calling* a method on an object and *replacing* the base class's method body, which virtual dispatch never reaches. Cold-spawn (`frida -U -f … --no-pause`), then open the WebView screen: the trace prints every navigation with its flag state. If a screen navigates via `loadData` / `loadDataWithBaseURL` / `postUrl` instead of `loadUrl`, add those overloads.
-
 <img alt="Frida WebView.loadUrl hook printing all five file-access flags as true on VulnLabApp" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/webview-file-scheme-1.png">
 
-The hook fires on the dashboard navigation and confirms all five flags are on — `allowFileAccess`, `allowFileAccessFromFileURLs`, and `allowUniversalAccessFromFileURLs` are exactly the combination an attacker wants.
+The hook fires on the dashboard navigation and confirms all five flags are on `allowFileAccess`, `allowFileAccessFromFileURLs`, and `allowUniversalAccessFromFileURLs` are exactly the combination an attacker wants.
 
 <br>**Read primitive #1, direct file render**
 
