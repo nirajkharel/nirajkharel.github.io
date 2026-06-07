@@ -1,5 +1,5 @@
 ---
-title: Parcelable Redirection
+title: Android - Parcelable Redirection
 author: nirajkharel
 date: 2026-05-17 14:30:00 +0800
 categories: [Mobile Pentesting, Android]

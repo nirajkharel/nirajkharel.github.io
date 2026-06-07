@@ -1,5 +1,5 @@
 ---
-title: Intent Redirection to Internal Activities
+title: Android - Intent Redirection to Internal Activities
 author: nirajkharel
 date: 2026-05-18 14:30:00 +0800
 categories: [Mobile Pentesting, Android]

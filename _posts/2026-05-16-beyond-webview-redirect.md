@@ -1,5 +1,5 @@
 ---
-title: Escalating a WebView Intent Injection
+title: Android - Escalating a WebView Intent Injection
 author: nirajkharel
 date: 2026-05-16 14:30:00 +0800
 categories: [Mobile Pentesting, Android]

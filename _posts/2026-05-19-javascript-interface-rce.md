@@ -1,5 +1,5 @@
 ---
-title: Android JavaScript Bridge RCE
+title: Android - JavaScript Bridge RCE
 author: nirajkharel
 date: 2026-05-19 14:30:00 +0800
 categories: [Mobile Pentesting, Android]

@@ -1,5 +1,5 @@
 ---
-title: File Write via an Exported Activity
+title: Android - File Write via an Exported Activity
 author: nirajkharel
 date: 2026-05-21 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
