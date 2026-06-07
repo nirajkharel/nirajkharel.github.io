@@ -1,5 +1,5 @@
 ---
-title: Intent Redirection - Reaching Internal Activities Through a Trusted Exported Door
+title: Intent Redirection to Internal Activities
 author: nirajkharel
 date: 2026-05-18 14:30:00 +0800
 categories: [Mobile Pentesting, Android]

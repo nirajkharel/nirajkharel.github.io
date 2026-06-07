@@ -1,5 +1,5 @@
 ---
-title: JavaScript Bridge RCE - From @JavascriptInterface to Hybrid Framework Plugins
+title: Android JavaScript Bridge RCE
 author: nirajkharel
 date: 2026-05-19 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
@@ -270,7 +270,7 @@ Java.perform(function () {
 });
 ```
 
-Walk the app for a minute. The trace lists every plugin call with its arguments and the truncated result — the complete attacker surface.
+Walk the app for a minute. The trace lists every plugin call with its arguments and the truncated result - the complete attacker surface.
 
 <img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/javascript-interface-rce-3.png">
 

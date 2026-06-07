@@ -1,5 +1,5 @@
 ---
-title: allowBackup=true - Android Insecure Backup
+title: Extracting App Data with adb backup
 author: nirajkharel
 date: 2026-05-05 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
