@@ -87,7 +87,7 @@ adb shell am start -n com.vulnlab.app/.activities.StreamUriActivity \
   -d "file:///data/data/com.vulnlab.app/shared_prefs/auth_prefs.xml"
 ```
 
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/stream-uri-1.png">
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/stream-uri-read-1.png">
 
 If the URI string appearing in the log is the one you passed, the call site is reachable and unvalidated.
 
@@ -109,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
     }
 }
 ```
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/stream-uri-2.png">
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/stream-uri-read-2.png">
 
 The target's `StreamUriActivity` reads `auth_prefs.xml` from its own data dir and feeds it into whatever the activity does with the bytes. The visible side effect on the user's screen depends on the use, sometimes a "import successful" toast appears, sometimes the activity silently uploads, and in VulnLabApp's case the preview lands directly in the on-screen TextView.
 
