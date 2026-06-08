@@ -1,5 +1,5 @@
 ---
-title: Stream URI Read via openInputStream
+title: Android - Stream URI Read via openInputStream
 author: nirajkharel
 date: 2026-05-23 14:30:00 +0800
 categories: [Mobile Pentesting, Android]

