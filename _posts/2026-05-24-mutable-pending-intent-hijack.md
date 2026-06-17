@@ -1,5 +1,5 @@
 ---
-title: Hijacking a Mutable PendingIntent
+title: Android - Hijacking a Mutable PendingIntent
 author: nirajkharel
 date: 2026-05-24 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
@@ -164,10 +164,11 @@ Register the listener and turn on notification access (it does nothing until acc
 adb shell cmd notification allow_listener \
   com.root3d.myapplication77/com.root3d.myapplication77.NotificationHijacker
 ```
-<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/pending-intent-2.gif">
-<br>
 
 Fire `NotificationActivity` to post the notification. Your listener catches it, adds `filename`/`content` (keys the base never set), and fires the PendingIntent into `FileWriteActivity` - which does the path-traversal write **as VulnLabApp**, overwriting its own `auth_prefs.xml` and flipping `premium=true`. Bounded, but it ran with the victim's identity, which is the whole point.
+
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/pending-intent-2.gif">
+<br>
 
 <br>**Tier 2 - empty base intent, redirect and steal a content provider**
 
@@ -217,7 +218,7 @@ public class GrantReceiver extends Activity {
 </activity>
 ```
 
-The rule that makes this "arbitrary" content provider access: **if VulnLabApp itself could not read `content://com.vulnlab.app.secret`, the grant flag would be silently ignored.** It can - it owns the provider so the access transfers to you, and `grantUriPermissions="true"` lets the grant bypass `exported="false"`. You just read a provider you could never have queried directly. Aim the same trick at whatever the *victim's* permissions cover its own private data, or a system provider like contacts/SMS if the app holds that permission — and the impact is whatever that app could read.
+The rule that makes this "arbitrary" content provider access: **if VulnLabApp itself could not read `content://com.vulnlab.app.secret`, the grant flag would be silently ignored.** It can - it owns the provider so the access transfers to you, and `grantUriPermissions="true"` lets the grant bypass `exported="false"`. You just read a provider you could never have queried directly. Aim the same trick at whatever the *victim's* permissions cover its own private data, or a system provider like contacts/SMS if the app holds that permission - and the impact is whatever that app could read.
 
 <br>**Other ways the PendingIntent leaks to you**
 
@@ -250,4 +251,4 @@ The whole bug is two facts standing next to each other: `send()` runs the wrappe
 - [https://hackerone.com/reports/1161401](https://hackerone.com/reports/1161401)
 
 Happy Hacking !!
-</content>
+
