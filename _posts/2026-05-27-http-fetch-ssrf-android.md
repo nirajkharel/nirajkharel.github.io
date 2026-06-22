@@ -1,5 +1,5 @@
 ---
-title: SSRF Through an Android App
+title: Android - SSRF Through an Android App
 author: nirajkharel
 date: 2026-05-27 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
@@ -94,6 +94,8 @@ Java.perform(function () {
 
 Fire the activity and watch what URLs the connection is built against.
 
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/http-fetch-ssrf-1.png">
+
 <br>**Attacker app**
 
 ```java
@@ -119,9 +121,11 @@ adb shell am start -n com.vulnlab.app/.activities.WebViewActivity \
   --es fetch "http://192.168.1.1/cgi-bin/luci/?username=admin&password=admin"
 ```
 
-The target app's `WebViewActivity` fires an HTTP GET (with the user's session cookies if it shares a cookie jar) at `http://192.168.1.1/`. If the request succeeds, you have just sent a credentialed request to the router's admin panel from a position no external attacker could reach.
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/http-fetch-ssrf-2.png">
 
-The result is rarely directly observable to the attacker app, the target activity caches the response locally. But that's where the chains start. Combine SSRF with a follow-up file-read primitive on the target app's cache, and you have a read-anywhere-on-the-local-network primitive.
+Either path lands on `WebViewActivity` with the fetch field pre-filled with the attacker's URL, sitting above the app's dashboard page. The intent only seeds the field, the HTTP GET fires when the **Fetch** button is tapped, so this variant needs the victim to tap once. The request goes out at `http://192.168.1.1/`, with the user's session cookies if the client shares a cookie jar. If it succeeds, you have just sent a credentialed request to the router's admin panel from a position no external attacker could reach.
+
+VulnLabApp surfaces the first 200 bytes of the response in a Toast on the victim's screen, so it is not returned to the attacker app that fired the intent. Real targets rarely surface it at all. But that's where the chains start. Combine SSRF with a follow-up file-read primitive on the target app's cache, and you have a read-anywhere-on-the-local-network primitive.
 
 <br>**The localhost variant, reading the app's own internal servers**
 
