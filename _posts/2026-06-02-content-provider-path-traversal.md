@@ -201,15 +201,6 @@ A common variant: the provider is `android:exported="false"` but carries `androi
 
 This chains cleanly with the provider-grant-escalation primitive - covered in [its own post](https://nirajkharel.com.np/posts/provider-grant-escalation/) — and the two are often worth submitting as separate findings: one for obtaining the grant, one for the traversal it unlocks.
 
-<br>**Severity discussion**
-
-Provider path traversal is one of the cleanest read-anything-on-disk primitives in Android. Triage usually lands at **high** for arbitrary file read inside the target's data dir, **critical** when the read recovers credentials or session tokens.
-
-Submit with:
-- The vulnerable `openFile` (code reference) and the missing canonicalization
-- The traversal URI and the Frida `openFile` trace showing the resolved path escaping the base dir
-- The attacker caller code
-- The specific file recovered and what it contained
 
 <br>**Closing**
 
