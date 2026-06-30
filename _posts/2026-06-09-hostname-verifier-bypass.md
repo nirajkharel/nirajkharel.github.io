@@ -1,5 +1,5 @@
 ---
-title: HostnameVerifier That Returns True
+title: Android - HostnameVerifier That Returns True
 author: nirajkharel
 date: 2026-06-09 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
