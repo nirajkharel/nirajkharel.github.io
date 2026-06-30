@@ -36,7 +36,7 @@ loginSuccess.putExtra("role",  "ADMIN");
 sendBroadcast(loginSuccess);     // VULN
 ```
 
-The developer's mental model: the broadcast goes to "our own `ImplicitBroadcastReceiver`". The reality: any app with a `<receiver>` declaring `<intent-filter><action android:name="com.vulnlab.app.SESSION_CHANGED" /></intent-filter>` receives the same intent, complete with the token and email extras.
+Developers might assume that the broadcast goes to "our own `ImplicitBroadcastReceiver`". The reality: any app with a `<receiver>` declaring `<intent-filter><action android:name="com.vulnlab.app.SESSION_CHANGED" /></intent-filter>` receives the same intent, complete with the token and email extras.
 
 The action namespacing, `com.vulnlab.app.*`, is a convention, not a security boundary. An attacker can register any action they want in their manifest.
 
