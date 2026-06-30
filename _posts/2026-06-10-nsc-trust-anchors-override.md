@@ -1,5 +1,5 @@
 ---
-title: Network Security Config Trust-Anchor Override
+title: Android - Network Security Config Trust-Anchor Override
 author: nirajkharel
 date: 2026-06-10 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
