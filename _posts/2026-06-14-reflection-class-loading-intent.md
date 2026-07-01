@@ -1,5 +1,5 @@
 ---
-title: Class.forName from an Intent Extra
+title: Android - Class.forName from an Intent Extra
 author: nirajkharel
 date: 2026-06-14 14:30:00 +0800
 categories: [Mobile Pentesting, Android]
