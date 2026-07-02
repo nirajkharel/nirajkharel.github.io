@@ -23,13 +23,13 @@ This is `VulnContentProvider`'s `query()` method - the method every `ContentReso
 
 <img alt="Annotated VulnContentProvider.query() showing four SQL-injection points" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/content-provider-sql-query-annotated.png">
 
-**Highlight 1** is where the table name comes from. `uri.getLastPathSegment()` takes whatever the caller put at the end of the `content://` URI - the `/users` in `content://com.vulnlab.app.provider/users` - and uses it as-is as the table name. Why would a developer write it this way? Because it's a convenient way to let one `query()` method serve multiple tables without writing a `query()` per table - `/users` hits the `users` table, `/sessions` hits `sessions`, one switch avoided. The `if (table == null) table = "users"` fallback is a default, not a check - it never verifies that whatever *did* come through is one of the tables the provider intended to expose.
+**Highlight 1** is where the table name comes from. `uri.getLastPathSegment()` takes whatever's at the end of the `content://` URI - the `/users` in `content://com.vulnlab.app.provider/users` - and uses it as-is as the table name. Convenient: one `query()` serves every table, `/users` hits `users`, `/sessions` hits `sessions`, no per-table switch needed. But the `if (table == null) table = "users"` line is a default, not a check - it never verifies the table name is one the provider intended to expose.
 
-**Highlight 2** is the actual injection point. `selection` is the raw string the caller passed as the `--where` argument (or the `selection` parameter of `ContentResolver.query()`). Does the developer parameterize it? No - they string-concatenate it directly after the literal `" WHERE "`. This is exactly the same mistake as building a SQL string with `+` in a Java servlet, just relocated to Android IPC. The comment in the source even says so - `// VULN: raw attacker string in SQL` - the developer (in this deliberately vulnerable lab app) left themselves a note about it.
+**Highlight 2** is the actual injection point. `selection` is the raw string the caller passed in - as `--where` over adb, or the `selection` parameter of `ContentResolver.query()`. It's string-concatenated straight after `" WHERE "`, no parameterization. Same mistake as building SQL with `+` in a servlet, just relocated to Android IPC - and the source even leaves itself a note about it: `// VULN: raw attacker string in SQL`.
 
-**Highlight 3** is where highlights 1 and 2 combine. `"SELECT * FROM " + table + where` builds the final SQL string by gluing together an attacker-influenced table name and an attacker-controlled WHERE clause onto a fixed `SELECT *`. Nothing here is bound - it's pure string concatenation, three untrusted-adjacent pieces stitched into one statement.
+**Highlight 3** is where 1 and 2 combine. `"SELECT * FROM " + table + where` glues an attacker-influenced table name and an attacker-controlled WHERE clause onto a fixed `SELECT *`. Three untrusted-adjacent pieces, one concatenated string, nothing bound.
 
-**Highlight 4** is the part that actually matters for exploitability: how the query executes. `db.rawQuery(query, null)` runs the fully-built string as SQL, and passes `null` for the bind arguments. That `null` is the tell - if the developer had used `selectionArgs` correctly, this argument would carry the untrusted values as parameters and SQLite would bind them safely, string content and all, no matter what the attacker put in `selection`. Passing `null` here means every character of `selection` gets interpreted as SQL syntax, not as a literal string. That's the whole bug in one method argument.
+**Highlight 4** is what actually makes it exploitable. `db.rawQuery(query, null)` runs that string as SQL and passes `null` for the bind arguments. That `null` is the tell: with `selectionArgs` used correctly, SQLite would bind the untrusted values safely regardless of content. With `null`, every character of `selection` is parsed as SQL syntax instead. That's the whole bug in one argument.
 
 Three injectable parameters fall out of this:
 
@@ -39,62 +39,15 @@ Three injectable parameters fall out of this:
 
 **Projection**, not exploitable here because `rawQuery` ignores the `projection` parameter entirely - but worth checking on every other provider you audit, because a variant that passes `projection` straight into `db.query()` will accept a subquery in place of a column name: `(SELECT password FROM users WHERE id=1)`.
 
-<br>**Identifying it**
+None of that matters if the provider isn't reachable, so the other half of "the shape" is `AndroidManifest.xml` - same as any provider bug, it's where you get the `authority` and the reachability. Three attributes on this declaration decide whether the injectable code above is reachable at all:
 
-Start in `AndroidManifest.xml` - same as any provider bug, it's where you get the `authority` and the reachability. Three attributes on this declaration decide whether the injectable code you'll find in a minute is reachable at all:
+<img alt="Annotated VulnContentProvider manifest declaration showing three reachability attributes" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/content-provider-sql-manifest-annotated.png">
 
-<style>
-.cb-wrap{margin:24px 0;padding:40px 48px;border-radius:14px;background:linear-gradient(135deg,#7c6fd6 0%,#4a63c9 50%,#3a7bd5 100%);}
-.cb-card{position:relative;background:#1e1f26;border-radius:10px;box-shadow:0 20px 40px rgba(0,0,0,0.35);overflow:visible;padding-bottom:20px;}
-.cb-titlebar{display:flex;align-items:center;gap:8px;padding:12px 16px 8px 16px;}
-.cb-dot{width:12px;height:12px;border-radius:50%;display:inline-block;}
-.cb-dot.red{background:#ff5f56;}
-.cb-dot.yellow{background:#ffbd2e;}
-.cb-dot.green{background:#27c93f;}
-.cb-code{font-family:"Menlo","SF Mono","Fira Code",monospace;font-size:15px;line-height:24px;padding:8px 44px 16px 28px;white-space:pre;overflow-x:auto;color:#e6e6e6;}
-.cb-code .cb-line{display:block;}
-.cb-kw{color:#ff79c6;}
-.cb-type{color:#8be9fd;}
-.cb-ann{color:#f1fa8c;}
-.cb-str{color:#f5d76e;}
-.cb-cm{color:#6b7280;font-style:italic;}
-.cb-met{color:#50fa7b;}
-.cb-hlbox{position:relative;margin:4px 0;padding:4px 8px;border:2px solid #ff5f56;border-radius:6px;background:rgba(255,95,86,0.06);}
-.cb-badge{position:absolute;right:-34px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:#ff5f56;color:#1e1f26;font-family:"Menlo","SF Mono",monospace;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);}
-@media (max-width:700px){.cb-wrap{padding:16px;}.cb-badge{position:static;transform:none;display:inline-flex;margin-left:8px;}}
-</style>
+**Highlight 1**, `android:authorities`, is the host of every `content://` URI you'll query - `content://com.vulnlab.app.provider/...`. `android:name` maps that authority to the class to open next, `VulnContentProvider`.
 
-<div class="cb-wrap">
-  <div class="cb-card">
-    <div class="cb-titlebar">
-      <span class="cb-dot red"></span>
-      <span class="cb-dot yellow"></span>
-      <span class="cb-dot green"></span>
-    </div>
-    <div class="cb-code">
-<span class="cb-line">&lt;<span class="cb-kw">provider</span></span>
-<span class="cb-line">    <span class="cb-ann">android:name</span>=<span class="cb-str">".providers.VulnContentProvider"</span></span>
-<div class="cb-hlbox">
-<span class="cb-line">    <span class="cb-ann">android:authorities</span>=<span class="cb-str">"com.vulnlab.app.provider"</span></span>
-<div class="cb-badge">1</div>
-</div>
-<div class="cb-hlbox">
-<span class="cb-line">    <span class="cb-ann">android:exported</span>=<span class="cb-str">"true"</span></span>
-<div class="cb-badge">2</div>
-</div>
-<div class="cb-hlbox">
-<span class="cb-line">    <span class="cb-ann">android:grantUriPermissions</span>=<span class="cb-str">"true"</span> /&gt;</span>
-<div class="cb-badge">3</div>
-</div>
-    </div>
-  </div>
-</div>
+**Highlight 2**, `android:exported="true"` with no `android:readPermission`, is what makes any of this reachable - every installed app can call `ContentResolver.query()` against this authority. Flip it to `false`, or gate it behind a `signature` permission, and the injection is still a bug but no longer one a third-party app can trigger.
 
-**Highlight 1**, `android:authorities`, is the host of every `content://` URI you'll query against this provider - `content://com.vulnlab.app.provider/...`. It's also the string `android:name` maps to the class you open next in the decompile, `VulnContentProvider`, where the injectable `query()` method from the previous section lives.
-
-**Highlight 2**, `android:exported="true"`, is the attribute that decides whether any of this matters. Does an exported provider mean any app can query it? Yes, by default - `exported="true"` with no `android:readPermission` means every installed app, no shared signature, no special permission, can call `ContentResolver.query()` against this authority and reach the vulnerable code. Flip this to `false`, or gate it behind a `signature`-level permission, and the injection becomes unreachable from outside the app - still a bug, but no longer a bug a third-party app can trigger.
-
-**Highlight 3**, `android:grantUriPermissions="true"`, is easy to skim past because it doesn't look related to SQL injection at all. It isn't, directly - but it means this provider can also hand out temporary access grants on specific URIs to apps that would otherwise be blocked, which matters when you're chaining this provider with other primitives (the path-traversal `openFile()` bug in this same class, for one). Worth noting when you see it, even if it's not the attribute doing the work in this particular finding.
+**Highlight 3**, `android:grantUriPermissions="true"`, isn't directly related to the SQL injection, but worth noting - it lets this provider hand out temporary URI grants, which matters when chaining with other primitives (the path-traversal `openFile()` bug in this same class, for one).
 
 With the authority and class name in hand, grep the decompile for that class's `query` implementation:
 
