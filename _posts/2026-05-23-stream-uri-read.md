@@ -161,8 +161,10 @@ If the target app exposes its own FileProvider with overly-broad `<root-path>` d
 
 ```java
 i.putExtra("read_uri",
-    Uri.parse("content://com.vulnlab.app.provider/root/data/data/com.vulnlab.app/shared_prefs/auth_prefs.xml"));
+    Uri.parse("content://com.vulnlab.app.fileprovider/root/data/data/com.vulnlab.app/shared_prefs/auth_prefs.xml"));
 ```
+
+(Authority is the app's `FileProvider`, `com.vulnlab.app.fileprovider` - not `com.vulnlab.app.provider`, which is a separate, unrelated `ContentProvider` backing the SQL-injection/path-traversal demos. Passing the wrong authority resolves against the wrong provider and the read fails.)
 
 Now the read goes target-app → target-app's FileProvider → target-app's data dir → bytes. Self-referencing read. Sometimes works when direct `file://` URIs are rejected because the FileProvider authority is implicitly trusted.
 

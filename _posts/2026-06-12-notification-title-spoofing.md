@@ -59,6 +59,8 @@ getSystemService(NotificationManager.class).notify(NOTIF_ID + 1, n);
 
 The intent extras flow directly into the notification — no UI interaction needed. The notification lands in the shade under VulnLabApp's label with whatever text the attacker supplied.
 
+`NotificationActivity` is declared `android:exported="false"`, so a third-party app cannot launch it directly with an explicit Intent - the framework blocks that. The direct-launch PoC below works from `adb shell` (which bypasses the exported check) or from a rooted/debuggable-device attacker path. On a real target, reaching this sink from another installed app requires an exported forwarder (the same `IntentRedirectorActivity`-style proxy chain covered in the Parcelable-redirection post) that hands off to `NotificationActivity` with attacker-controlled extras - the notification-content bug itself is real, but it needs that extra hop to be reachable from outside.
+
 Trigger it with ADB and confirm with Frida:
 
 ```bash

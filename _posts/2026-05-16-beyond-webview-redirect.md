@@ -20,10 +20,11 @@ The short version of the primitive for anyone who has not read the previous post
 
 Briefly: most apps share their HTTP cookie jar between the in-app WebView and the app's own networking layer. When the WebView loads your attacker URL, the GET request goes out with the user's authenticated cookies in the header. Point the URL at a Burp Collaborator host and the cookie lands in your logs.
 
-In VulnLabApp the WebView is reachable directly through `WebViewActivity`, which calls `webView.loadUrl(intent.getStringExtra("url"))` with no scheme validation:
+In VulnLabApp the WebView is reachable directly through `WebViewActivity`, which calls `webView.loadUrl(intent.getStringExtra("url"))` with no scheme validation. Here is the attacker app's launcher activity that fires it - not VulnLabApp's own code, this is the PoC you'd ship in a separate attacker APK:
 
 ```java
-public class MainActivity extends AppCompatActivity {
+// Attacker app's own launcher activity — installed as a separate APK
+public class AttackerLauncherActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

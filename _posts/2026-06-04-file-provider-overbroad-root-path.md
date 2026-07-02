@@ -135,7 +135,23 @@ The `/root/` segment maps directly to the `<root-path name="root" path="/">` ent
 
 <br>**The attacker app**
 
-`FileProviderActivity` is exported and fires `ACTION_SEND` with `FLAG_GRANT_READ_URI_PERMISSION` on whatever path the user types. The path goes directly to `new File(path)` - no base directory prepended - so any absolute path on the filesystem is valid. The attacker launches the activity, enters an absolute path to a private file, taps share, and picks the attacker app from the chooser.
+`FileProviderActivity` is exported and fires `ACTION_SEND` with `FLAG_GRANT_READ_URI_PERMISSION` on whatever path is in the `EditText` when Share is tapped. The path goes directly to `new File(path)` - no base directory prepended - so any absolute path on the filesystem is valid.
+
+The attacker does not need the user to type anything. `FileProviderActivity` also reads a `file_path` Intent extra on launch and pre-fills the field with it - no validation:
+
+```java
+// VULN: attacker can inject file_path via intent extra — no validation
+if (intent.hasExtra("file_path")) {
+    etPath.setText(intent.getStringExtra("file_path"));
+}
+```
+
+So the chain is: attacker app launches `FileProviderActivity` with an explicit `file_path` extra pointing at the target file, the field is pre-populated, and the user only has to tap the one visible "Share" button and pick the attacker's app from the chooser - no path to type or edit:
+
+```bash
+adb shell am start -n com.vulnlab.app/.activities.FileProviderActivity \
+  --es file_path "/data/data/com.vulnlab.app/shared_prefs/auth_prefs.xml"
+```
 
 For the attacker app to appear in the chooser it needs an `ACTION_SEND` intent-filter in its manifest:
 

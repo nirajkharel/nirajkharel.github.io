@@ -59,20 +59,19 @@ Verified using v3 scheme (APK Signature Scheme v3): false
 
 v1 true, v2/v3 false, and `minSdkVersion < 26` in the manifest - that is the vulnerable combination.
 
-VulnLabApp's `build.gradle` ships both conditions:
+VulnLabApp's `build.gradle` ships the low `minSdk` half of that condition:
 
 ```groovy
 android {
     defaultConfig {
         applicationId "com.vulnlab.app"
-        // VULN: janus-v1-signing — low minSdkVersion enables the Janus attack window
         minSdk 21
-        targetSdk 34
+        targetSdk 28
     }
-    // v1-only signing applied at apksigner step:
-    // apksigner sign --v1-signing-enabled true --v2-signing-enabled false ...
 }
 ```
+
+The v1-only signing half is not a real `signingConfigs` block in this build.gradle — the project doesn't check in a release keystore. It's applied out-of-band at the `apksigner` step (shown below) and surfaced in-app purely as an informational label, `JanusInfoActivity` just prints the string `v1SigningEnabled = true / v2SigningEnabled = false` for the demo. Treat that activity as documentation of the intended vulnerable build, not proof the APK you're holding was actually signed that way — always confirm with `apksigner verify` against the real artifact.
 
 <br>**How does the attacker deliver the modified APK?**
 

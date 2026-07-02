@@ -58,7 +58,7 @@ private String invokeReflection(String className, String methodName, String meth
         return "Result: " + result;
     } catch (ClassNotFoundException e) { return "Class not found: " + className; }
     catch (NoSuchMethodException e)     { return "Method not found: " + methodName; }
-    catch (Exception e)                 { return "Error: " + e.getMessage(); }
+    catch (Exception e)                 { return "Error: " + e.getClass().getSimpleName() + ": " + e.getMessage(); }
 }
 ```
 

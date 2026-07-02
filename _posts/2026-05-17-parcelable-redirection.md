@@ -151,18 +151,24 @@ The internal activity is a WebView host that loads a URL from its extras. You ju
 
 Most apps in this shape have one internal activity that reads a "callback URL" and POSTs the user's auth token to it as part of an OAuth-style flow. The Parcelable redirect lets you launch that activity directly with a callback URL of your choice, and the activity sends the token to your domain because it thinks the OAuth handshake is legitimate.
 
-The pattern (VulnLabApp ships an `OAuthCallbackActivity` you can chain into through the redirector):
+The pattern (VulnLabApp ships an `OAuthCallbackActivity` you can chain into through the redirector — it is itself exported with a `vulnlab://oauth/callback` intent-filter, but the Parcelable chain lets you drive it with extras the OAuth flow never sends):
 
 ```java
-// Inside OAuthCallbackActivity (non-exported, normally only reached from OAuth flow)
-String callback = intent.getStringExtra("callback_url");
-String token    = TokenStore.get();
-new OkHttpClient().newCall(
-    new Request.Builder()
-        .url(callback)
-        .post(RequestBody.create(token.getBytes()))
-        .build()
-).execute();
+// Inside OAuthCallbackActivity
+String callbackUrl = intent.getStringExtra("callback_url");
+if (callbackUrl == null) callbackUrl = intent.getStringExtra("data");
+if (callbackUrl != null) {
+    final String token = getSharedPreferences("auth_prefs", MODE_PRIVATE)
+        .getString("session_token", "no-token");
+    new Thread(() -> {
+        HttpURLConnection conn = (HttpURLConnection) new URL(callbackUrl).openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        byte[] body = ("token=" + URLEncoder.encode(token, "UTF-8")).getBytes("UTF-8");
+        conn.getOutputStream().write(body);
+        conn.getResponseCode();
+    }).start();
+}
 ```
 
 Attacker chains it via the typed-Parcelable variant of `IntentRedirectorActivity`:
