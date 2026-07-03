@@ -21,27 +21,11 @@ There is a class of bug that is easy to find and rarely reported: an exported ac
 
 VulnLabApp's `StreamUriActivity` accepts a URI from either the `read_uri` Parcelable extra or the intent's data field, then opens it through the ContentResolver without any allowlist:
 
-```java
-Uri targetUri = intent.getParcelableExtra("read_uri");
-if (targetUri == null && intent.getData() != null) {
-    targetUri = intent.getData();
-}
-if (targetUri == null) {
-    tvOutput.setText("No 'read_uri' extra supplied.");
-    return;
-}
+<img alt="Annotated StreamUriActivity showing the dual-source URI and the unchecked openInputStream call" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/stream-uri-read-shape-annotated.png">
 
-try {
-    InputStream is = getContentResolver().openInputStream(targetUri);
-    byte[] bytes = is.readAllBytes();
-    is.close();
-    String preview = new String(bytes, 0, Math.min(bytes.length, 512));
-    tvOutput.setText("Read " + bytes.length + " bytes from: " + targetUri
-        + "\n\nPreview:\n" + preview);
-} catch (Exception e) {
-    tvOutput.setText("Error reading URI: " + e.getMessage());
-}
-```
+**Highlight 1** resolves the target URI from two possible sources - a `read_uri` Parcelable extra, or the intent's own data field - with no scheme or authority check on either path.
+
+**Highlight 2** opens it. Whatever URI made it through highlight 1, `openInputStream` reads it as the target app's UID, no allowlist gate in between.
 
 > **API-level note.** `is.readAllBytes()` only exists on **API 33 (Android 13)+**. On an older device the call throws `java.lang.NoSuchMethodError`, and because that is an `Error`, not an `Exception`, the `catch (Exception e)` above does not catch it and the app crashes ("keeps stopping") instead of showing the preview. So on Android ≤ 12 you confirm reachability (the activity accepted your URI and opened it) but won't see the bytes; reproduce the full read on an API 33+ device, or rebuild the activity with a read loop.
 

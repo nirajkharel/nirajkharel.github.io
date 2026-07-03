@@ -37,18 +37,13 @@ The provider declaration in `AndroidManifest.xml` points to an XML file that def
 
 The `android:resource` attribute tells you which XML file defines what the FileProvider can actually serve. Open `res/xml/file_paths.xml` and you find:
 
-```xml
-<paths>
-    <!-- VULN: root-path with path="/" - entire filesystem accessible -->
-    <root-path name="root" path="/" />
+<img alt="Annotated file_paths.xml showing all three over-broad path declarations" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/file-provider-paths-annotated.png">
 
-    <!-- Also over-broad: exposes entire files dir -->
-    <files-path name="files" path="." />
+**Highlight 1**, `<root-path path="/">`, is the worst of the three - it scopes the FileProvider to the entire filesystem, not a directory within the app.
 
-    <!-- Also over-broad: exposes entire external storage -->
-    <external-path name="external" path="." />
-</paths>
-```
+**Highlight 2**, `<files-path path=".">`, scopes to the whole `files/` directory rather than a subdirectory - everything the app has ever written there is now grantable.
+
+**Highlight 3**, `<external-path path=".">`, does the same for external storage - the camera roll, downloads, and app-specific external cache all become reachable through a granted URI.
 
 What does `<root-path name="root" path="/" />` do? It tells the FileProvider that URIs under `content://com.vulnlab.app.fileprovider/root/` can resolve to *any* absolute path starting from `/`. That is the entire filesystem - private databases, shared preferences, key files, everything the app's UID can read. The scope is the device, not a directory.
 

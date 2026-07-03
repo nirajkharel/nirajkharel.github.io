@@ -48,14 +48,11 @@ If you hit one of those three walls, do not write the report off. Move to escala
 
 WebViews on Android accept `file://` URLs by default. Three settings on the `WebSettings` object control how aggressive that file-reading behaviour is, and VulnLabApp's `WebViewActivity` turns on all of them:
 
-```java
-settings.setJavaScriptEnabled(true);
-settings.setAllowFileAccess(true);
-settings.setAllowFileAccessFromFileURLs(true);
-settings.setAllowUniversalAccessFromFileURLs(true);
-```
+<img alt="Annotated WebSettings showing the two file-access flags that turn on the escalation" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/beyond-webview-settings-annotated.png">
 
-`setAllowFileAccess(true)` is the default on most apps. It lets the WebView load files from the filesystem at all. `setAllowFileAccessFromFileURLs(true)` defaults to `false` on API 16+, but the application might enable it depending upon their needs. `setAllowUniversalAccessFromFileURLs(true)` is the most dangerous of the three. It allows JavaScript loaded from a `file://` URL to read other origins, including remote ones.
+**Highlight 1**, `setAllowFileAccess(true)`, is the default on most apps. It lets the WebView load files from the filesystem at all.
+
+**Highlight 2** is the pair that actually enables cross-origin exfiltration. `setAllowFileAccessFromFileURLs(true)` defaults to `false` on API 16+, but VulnLabApp enables it anyway. `setAllowUniversalAccessFromFileURLs(true)` is the most dangerous of the two - it lets JavaScript loaded from a `file://` URL read other origins, including remote ones.
 
 If the first one is on and the WebView accepts arbitrary URLs from your intent extra, you can read files inside the app's private data directory directly:
 

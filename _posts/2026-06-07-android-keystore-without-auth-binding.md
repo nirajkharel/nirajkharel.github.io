@@ -32,21 +32,11 @@ Cross-reference. Every `KeyGenParameterSpec.Builder` chain that has no matching 
 
 VulnLabApp's `KeystoreActivity` generates an RSA signing key:
 
-```java
-private static final String KEY_ALIAS = "vulnlab_signing_key";
+<img alt="Annotated KeyGenParameterSpec.Builder chain showing configured protections next to the missing auth-required line" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/keystore-keygen-annotated.png">
 
-KeyPairGenerator kpg = KeyPairGenerator.getInstance(
-    KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore");
+**Highlight 1** is what the developer *did* configure - digest and padding. It reads like a careful setup, which is exactly why the next line is easy to miss.
 
-kpg.initialize(new KeyGenParameterSpec.Builder(
-    KEY_ALIAS,
-    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
-    .setDigests(KeyProperties.DIGEST_SHA256)
-    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-    // .setUserAuthenticationRequired(true)    // missing
-    .build());
-KeyPair kp = kpg.generateKeyPair();
-```
+**Highlight 2** is the line that was never uncommented. Everything else about this key is correct; only the auth gate is absent, and that's the one that actually decides who can use the key.
 
 The missing line is the entire security model. Without it the key is callable any time the app holds the handle - no authentication state required.
 

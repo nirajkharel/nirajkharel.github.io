@@ -141,16 +141,11 @@ You'll see a `<uri-grant>` with `targetPkg=com.vulnlab.app`, the URI, and `modeF
 
 The give side is where the impact is. VulnLabApp's `ShareSecretActivity` is exported and hands any caller a persistable read grant on its **own** private `SecretProvider` (declared `exported="false"`):
 
-```java
-// ShareSecretActivity — VulnLabApp
-Uri secret = Uri.parse("content://com.vulnlab.app.secret/token");
-Intent result = new Intent();
-result.setData(secret);
-result.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-              | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);   // VULN: persistable
-setResult(RESULT_OK, result);
-finish();
-```
+<img alt="Annotated ShareSecretActivity showing the private-provider URI and the persistable grant flag" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/provider-grant-sharesecret-annotated.png">
+
+**Highlight 1** is the URI being granted - `content://com.vulnlab.app.secret/token`, a provider the app itself declared `exported="false"`. Nobody should be able to reach this directly.
+
+**Highlight 2** is what breaks that isolation: `FLAG_GRANT_PERSISTABLE_URI_PERMISSION` alongside the read flag. Any caller that receives this result can call `takePersistableUriPermission` and read the secret forever, reboot included.
 
 Here the grantor is VulnLabApp itself, which owns the provider — so the grant is genuinely offered (no shell-grantor problem). The attacker launches it for a result, takes the grant, and reads the secret on its own schedule, forever:
 

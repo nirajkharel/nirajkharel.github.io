@@ -23,12 +23,11 @@ Custom permissions are how Android apps protect their components from other apps
 
 VulnLabApp's manifest declares:
 
-```xml
-<permission
-    android:name="com.vulnlab.app.SENSITIVE_ACTION"
-    android:protectionLevel="normal"
-    android:label="Sensitive Action" />
-```
+<img alt="Annotated permission declaration and gated activity showing the normal protection level" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/weak-permission-declaration-annotated.png">
+
+**Highlight 1** is the whole bug - `protectionLevel="normal"` means the system grants this permission to any app that declares `<uses-permission>` for it, silently, at install time. No signing-key check, no user prompt.
+
+**Highlight 2** is why it matters - `WeakPermissionActivity` looks protected in code review, the `android:permission` attribute is right there. But it's gating against a permission that costs the attacker one line of manifest XML to obtain.
 
 The levels in general:
 

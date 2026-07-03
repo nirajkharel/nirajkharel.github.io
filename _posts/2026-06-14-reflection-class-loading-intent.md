@@ -27,40 +27,13 @@ For each match, check whether the class-name argument comes from an intent extra
 
 <br>**What does this code do?**
 
-```java
-// VulnLabApp/ReflectionActivity.java
-String className  = intent.getStringExtra("class_name");
-String methodName = intent.getStringExtra("method_name");
-String methodArg  = intent.getStringExtra("method_arg");
+<img alt="Annotated reflection chain showing the three intent-controlled levers, Class.forName, and the method invoke" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/reflection-invoke-annotated.png">
 
-if (className != null && methodName != null) {
-    tvOutput.setText(invokeReflection(className, methodName, methodArg));
-}
+**Highlight 1** is the three levers - class name, method name, and an optional string argument, all read straight from the intent.
 
-private String invokeReflection(String className, String methodName, String methodArg) {
-    try {
-        Log.d(TAG, "[reflection] Class.forName: " + className
-            + " method: " + methodName + " arg: " + methodArg);
+**Highlight 2** is `Class.forName` on the attacker's string, then `newInstance()` on whatever came back - any class on the classpath with a public no-arg constructor is now instantiated.
 
-        // VULN: Class.forName with attacker-controlled string
-        Class<?> cls = Class.forName(className);
-        Object instance = cls.newInstance();
-
-        Method method;
-        Object result;
-        if (methodArg != null) {
-            method = cls.getMethod(methodName, String.class);
-            result = method.invoke(instance, methodArg);
-        } else {
-            method = cls.getMethod(methodName);
-            result = method.invoke(instance);
-        }
-        return "Result: " + result;
-    } catch (ClassNotFoundException e) { return "Class not found: " + className; }
-    catch (NoSuchMethodException e)     { return "Method not found: " + methodName; }
-    catch (Exception e)                 { return "Error: " + e.getClass().getSimpleName() + ": " + e.getMessage(); }
-}
-```
+**Highlight 3** picks the overload based on whether an arg was supplied and invokes it. Any public zero-or-one-String-argument method on that class is now callable, by name, from outside the app.
 
 Any class on the app's classpath with a public no-arg constructor is reachable. Any public method on it that takes zero or one String argument is callable. The app's own internal classes - debug utilities, OAuth handlers, migration runners - are all within reach.
 

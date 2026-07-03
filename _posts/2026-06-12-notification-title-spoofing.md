@@ -42,20 +42,11 @@ if (intent.hasExtra("title") && intent.hasExtra("body")) {
 
 <br>**What does the vulnerable code do?**
 
-```java
-// VulnLabApp/NotificationActivity.java — btn_spoof_notif click handler
-String title = etTitle.getText().toString();
-String body  = etBody.getText().toString();
+<img alt="Annotated notification builder showing the unsanitized title/body source and where they land" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/notification-spoof-annotated.png">
 
-// VULN: no sanitization
-Log.d(TAG, "[notif-spoof] title=" + title + " body=" + body);
-Notification n = new NotificationCompat.Builder(this, CHANNEL)
-    .setSmallIcon(android.R.drawable.ic_dialog_info)
-    .setContentTitle(title)   // attacker-controlled
-    .setContentText(body)     // attacker-controlled
-    .build();
-getSystemService(NotificationManager.class).notify(NOTIF_ID + 1, n);
-```
+**Highlight 1** is the source - `title` and `body`, read straight from input with no sanitization.
+
+**Highlight 2** is the sink - both values go directly onto the notification builder. Whatever the attacker supplied is what the user reads under VulnLabApp's own name and icon.
 
 The intent extras flow directly into the notification — no UI interaction needed. The notification lands in the shade under VulnLabApp's label with whatever text the attacker supplied.
 

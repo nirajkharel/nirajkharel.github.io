@@ -174,12 +174,11 @@ Fire `NotificationActivity` to post the notification. Your listener catches it, 
 
 This is the dangerous one, and every CVE here (CVE-2020-0188 `SettingsSliceProvider`, CVE-2020-0389 SystemUI `RecordingService`) is an instance of it. The app builds the PendingIntent from an **empty** base:
 
-```java
-// VulnLabApp: --ez post_empty_pi true posts a notification with this
-PendingIntent leak = PendingIntent.getActivity(
-    this, 2, new Intent(),   // empty base - every field unset
-    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-```
+<img alt="Annotated empty-base PendingIntent showing the blank Intent and the mutable flag together" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/pending-intent-emptybase-annotated.png">
+
+**Highlight 1** is the base - `new Intent()`, every field unset. Per the fillIn table, that means every fillable field is up for grabs.
+
+**Highlight 2** is `FLAG_MUTABLE` on that same PendingIntent. Highlight 1 alone would be harmless if the holder couldn't write into it - it's the combination that matters.
 
 Now the holder controls nearly everything. Per the table, they can't set `component` directly, so they steer the launch with `action` + `package` (which resolves into their own app), and they set `data` + `FLAG_GRANT_READ_URI_PERMISSION` so the victim grants them a URI. Point that URI at something the attacker can't reach but the victim can - VulnLabApp's private `SecretProvider`, declared `exported="false"`:
 

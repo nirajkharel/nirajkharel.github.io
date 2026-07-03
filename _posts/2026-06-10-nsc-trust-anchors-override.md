@@ -37,25 +37,11 @@ VulnLabApp's manifest wires all three flags on at once:
 
 <br>**What does the config do?**
 
-```xml
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true">
-        <trust-anchors>
-            <certificates src="system" />
-            <!-- VULN: user certs trusted in production build -->
-            <certificates src="user" />
-        </trust-anchors>
-    </base-config>
+<img alt="Annotated network security config showing the user-cert trust anchor repeated in base-config and domain-config" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/nsc-trust-anchors-annotated.png">
 
-    <domain-config>
-        <domain includeSubdomains="true">api.vulnlabapp.example.com</domain>
-        <trust-anchors>
-            <certificates src="system" />
-            <certificates src="user" />
-        </trust-anchors>
-    </domain-config>
-</network-security-config>
-```
+**Highlight 1** is the base mistake - `<certificates src="user" />` inside `<base-config>`, applying to every connection the app ever makes, in every build, not just debug.
+
+**Highlight 2** shows the same line repeated in the `api.vulnlabapp.example.com` domain config. Even if this domain had a `<pin-set>`, the user-cert anchor sitting alongside it would let a proxy's CA bypass the pin entirely.
 
 `<certificates src="system" />` trusts the device's built-in CA store. `<certificates src="user" />` adds every CA the user installed via Settings - including mitmproxy's CA, Burp's CA, Charles's CA. Because this sits in `<base-config>` and not `<debug-overrides>`, it applies to every connection in every build. The domain config for `api.vulnlabapp.example.com` repeats the same mistake - any pinning intended for that domain is immediately undermined by the user-cert anchor above it.
 

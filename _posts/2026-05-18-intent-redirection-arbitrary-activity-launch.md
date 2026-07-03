@@ -23,21 +23,13 @@ The Parcelable post covered one shape of this. There is a more general version, 
 
 A common entry point is a notification dispatcher, a deep-link router, or an analytics interstitial. The exported activity takes a `target` string, reflects it into a class reference, and forwards every extra it received. VulnLabApp's `IntentRedirectorActivity` ships exactly this shape:
 
-```java
-String target = incoming.getStringExtra("target");
-if (target != null) {
-    try {
-        Class<?> cls = Class.forName("com.vulnlab.app.activities." + target);
-        Intent next = new Intent(this, cls);
-        next.putExtras(incoming);  // VULN: forwards ALL extras
-        startActivity(next);
-    } catch (ClassNotFoundException e) {
-        tvOutput.setText("Unknown target: " + target);
-    }
-    finish();
-    return;
-}
-```
+<img alt="Annotated dispatcher showing the class resolution, wholesale extras forward, and launch" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/intent-redirection-dispatcher-annotated.png">
+
+**Highlight 1** resolves the class - attacker-controlled, but package-prefixed, so the developer's mental model says "this can only ever be one of our own activities, harmless."
+
+**Highlight 2** is the part that mental model misses: `next.putExtras(incoming)` forwards every extra the attacker supplied, wholesale, into whatever activity got resolved in highlight 1.
+
+**Highlight 3** launches it. The developer thinks they validated `target`. They never validated what rides along with it.
 
 The developer thinks this is safe because `target` is a short class name that gets prefixed with the app's own package, it can only resolve to a class that already exists in the app. What they missed is `next.putExtras(incoming)`, every extra the attacker supplied is forwarded into the resolved activity, including extras that the internal activity reads for sensitive decisions.
 

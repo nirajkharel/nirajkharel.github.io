@@ -59,31 +59,11 @@ In production RN apps you also find: `KeychainModule` (wraps AndroidKeystore), `
 
 <br>**What does the vulnerable native method do?**
 
-```java
-// ReactNativeBridgeActivity.java — simulated @ReactMethod implementations
-// VULN: public matches real @ReactMethod contract — also ensures ART doesn't inline
-// these into lambda call sites, which would bypass Frida method hooks.
+<img alt="Annotated bridge methods showing the shell exec call and the plaintext token read" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/rn-bridge-methods-annotated.png">
 
-public String nativeExec(String cmd) {
-    try {
-        Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
-        BufferedReader br = new BufferedReader(
-            new InputStreamReader(p.getInputStream()));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = br.readLine()) != null) sb.append(line).append("\n");
-        return sb.toString().trim();
-    } catch (Exception e) {
-        return "error: " + e.getMessage();
-    }
-}
+**Highlight 1** is `nativeExec`'s core - `Runtime.getRuntime().exec` on a string that arrived from the JS side of the bridge with no validation. Any JS bundle the app loads gets shell execution.
 
-public String nativeGetStoredToken() {
-    // VULN: returns plaintext token from SharedPreferences to JS bridge
-    return getSharedPreferences("auth_prefs", MODE_PRIVATE)
-        .getString("session_token", "no-token");
-}
-```
+**Highlight 2** is `nativeGetStoredToken` - the session token, read straight out of SharedPreferences and handed back across the bridge in plaintext. Both methods are `public` on purpose, matching the real `@ReactMethod` contract.
 
 `nativeExec` runs arbitrary shell commands inside the target's process. `nativeGetStoredToken` reads the session token from SharedPreferences and returns it to the JS caller. Any JS bundle the app loads can call both.
 

@@ -29,33 +29,13 @@ Both reduce to the same chain: an intent injection lets you control the WebView 
 
 A JavaScript bridge is an object the developer attaches to a WebView so that JavaScript running inside the WebView can call methods on it. The methods marked `@JavascriptInterface` are callable from JS. Everything else is not. The reason this is a code-execution primitive: whatever the developer thought was safe to expose in those bridge methods, you can call. In practice the bridge methods are not "safe", they are "developer-trusted". VulnLabApp's `NativeBridge` is a worst-case example:
 
-```java
-private static class NativeBridge {
+<img alt="Annotated NativeBridge showing exec, readFile, and the dedicated exfil sink" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/javascript-interface-nativebridge-annotated.png">
 
-    @JavascriptInterface
-    public String exec(String cmd) {
-        Process p = Runtime.getRuntime().exec(new String[]{ "sh", "-c", cmd });
-        BufferedReader br = new BufferedReader(
-            new InputStreamReader(p.getInputStream()));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = br.readLine()) != null) sb.append(line).append("\n");
-        return sb.toString();
-    }
+**Highlight 1** is `exec` - `Runtime.getRuntime().exec` on a raw shell string, callable from any JavaScript that reaches this bridge. Full command execution as the app's UID.
 
-    @JavascriptInterface
-    public String readFile(String path) {
-        java.io.File f = new java.io.File(path);
-        byte[] bytes = new java.io.FileInputStream(f).readAllBytes();
-        return new String(bytes);
-    }
+**Highlight 2** is `readFile` - any path the caller names gets read and returned. No scoping to the app's own directory, no allowlist.
 
-    @JavascriptInterface
-    public void sendToAttacker(String data) {
-        android.util.Log.d("EXFIL", "Data: " + data);
-    }
-}
-```
+**Highlight 3** is the bridge author's own exfil sink, `sendToAttacker`. VulnLabApp only logs it for the demo, but the shape - a method that takes a string and ships it somewhere - is exactly what a real bridge's telemetry or logging method looks like when it's reachable from attacker JS.
 
 The bridge is attached in `onCreate` with the JavaScript name `Android`:
 

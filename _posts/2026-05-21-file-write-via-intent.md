@@ -21,20 +21,17 @@ The file write primitive is the inverse of the file read primitive. Instead of g
 
 Apps that take an intent extra and use it as a file path in an output operation. The pattern is harder to spot than the read primitive because the developer rarely "passes a file path as an extra" intentionally, they almost always pass a content URI, a relative file name, or a feature toggle that decides which file to write. The bug is in the lack of validation of where the resulting write ends up.
 
-VulnLabApp's `FileWriteActivity` ships all three shapes, raw filename, type-switched destination with attacker payload, and URI-to-path copy with traversal:
+VulnLabApp's `FileWriteActivity` ships all three shapes, raw filename, type-switched destination with attacker payload, and URI-to-path copy with traversal. Pattern 1, the simplest:
+
+<img alt="Annotated Pattern 1 file write showing the raw filename extra and the unchecked write" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/file-write-pattern1-annotated.png">
+
+**Highlight 1** takes `filename` straight from the intent extra and hands it to `new File(getFilesDir(), filename)` with no traversal check. `..` segments in `filename` walk right out of the intended directory.
+
+**Highlight 2** writes attacker-supplied `content` to whatever that path resolved to. Two attacker-controlled values, one write, zero validation.
+
+Patterns 2 and 3 build on the same shape:
 
 ```java
-// Pattern 1 — output path is intent-controlled
-if (intent.hasExtra("filename") && intent.hasExtra("content")) {
-    String filename = intent.getStringExtra("filename");
-    String content  = intent.getStringExtra("content");
-    File outFile = new File(getFilesDir(), filename);
-    try (FileOutputStream fos = new FileOutputStream(outFile)) {
-        fos.write(content.getBytes());
-    }
-    return;
-}
-
 // Pattern 2 — output is decided by a switch but content is attacker-controlled
 if (intent.hasExtra("type") && intent.hasExtra("payload")) {
     String type    = intent.getStringExtra("type");

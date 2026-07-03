@@ -45,24 +45,11 @@ No `autoVerify="true"`. The framework does not verify ownership against `https:/
 
 <br>**What does the activity do with the URI?**
 
-```java
-// DeepLinkActivity.java
-Uri data = intent.getData();
+<img alt="Annotated DeepLinkActivity showing the query-param extraction and the unchecked open redirect" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/app-link-deeplink-annotated.png">
 
-// VULN: token from URI query param — also logged (logcat leakage)
-String token    = data.getQueryParameter("token");
-String redirect = data.getQueryParameter("redirect");
-String action   = data.getQueryParameter("action");
+**Highlight 1** pulls `token`, `redirect`, and `action` straight from the deep link's query parameters - exactly the values a competing app's chooser entry would let an attacker intercept.
 
-Log.d(TAG, "[deep-link] token=" + token + " redirect=" + redirect + " action=" + action);
-
-// VULN: open redirect — redirect URL not validated
-if (redirect != null) {
-    Intent webIntent = new Intent(this, WebViewActivity.class);
-    webIntent.putExtra("url", redirect);   // any URL including javascript:
-    startActivity(webIntent);
-}
-```
+**Highlight 2** is the open redirect: `redirect` goes directly into `WebViewActivity` with no scheme or host check, `javascript:` URIs included.
 
 Token, redirect URL, and action all flow from the deep link URI with no validation. The token is logged in plaintext. The redirect URL is passed directly to `WebViewActivity` - which was the file-scheme arbitrary-read and cookie-manager cross-origin blog target.
 

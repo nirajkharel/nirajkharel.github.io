@@ -33,34 +33,11 @@ For each `verify` method hit, check if it returns `true` without inspecting the 
 
 `NetworkActivity.fetchWithBrokenTls` installs both bugs in the same connection:
 
-```java
-// VULN 1: TrustManager accepts any certificate - self-signed, expired, wrong CA
-TrustManager[] trustAll = new TrustManager[]{
-    new X509TrustManager() {
-        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-        public void checkClientTrusted(X509Certificate[] c, String t) {}
-        public void checkServerTrusted(X509Certificate[] c, String t) {
-            // empty - no validation performed
-            Log.d(TAG, "[broken-tls] trusting cert for: " + c[0].getSubjectDN());
-        }
-    }
-};
+<img alt="Annotated TLS setup showing the empty checkServerTrusted body and the always-true hostname verify" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/hostname-verifier-tls-annotated.png">
 
-SSLContext sc = SSLContext.getInstance("TLS");
-sc.init(null, trustAll, null);
+**Highlight 1** is `checkServerTrusted` with an empty body - it never throws `CertificateException`, so every certificate passes, self-signed, expired, wrong CA, all of it.
 
-HttpsURLConnection conn = (HttpsURLConnection) new URL(urlStr).openConnection();
-conn.setSSLSocketFactory(sc.getSocketFactory());
-
-// VULN 2: HostnameVerifier accepts any hostname
-conn.setHostnameVerifier(new HostnameVerifier() {
-    @Override
-    public boolean verify(String hostname, SSLSession session) {
-        Log.d(TAG, "[hostname-verifier] always true for: " + hostname);
-        return true;
-    }
-});
-```
+**Highlight 2** is `verify` returning `true` unconditionally - even a certificate that's valid for the wrong hostname passes. Two independent checks, both neutered, stacked on the same connection.
 
 `checkServerTrusted` has an empty body - it never throws `CertificateException`, so any certificate passes. The `HostnameVerifier.verify` always returns `true` - so even if the certificate is valid for the wrong domain, it passes too. Together: any cert from any CA for any hostname is accepted.
 

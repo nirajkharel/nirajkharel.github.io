@@ -27,37 +27,11 @@ VulnLabApp's `DynamicCodeActivity` pre-fills the DEX path with `Environment.getE
 
 <br>**What does this code do?**
 
-```java
-private String loadAndRunDex(String dexPath) {
-    File dexFile = new File(dexPath);
-    if (!dexFile.exists()) {
-        return "DEX not found at: " + dexPath;
-    }
+<img alt="Annotated DexClassLoader construction and reflective invocation of the loaded plugin" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/dynamic-code-loading-annotated.png">
 
-    // VULN: loading from external storage — attacker-controlled path
-    File optimizedDir = getDir("dex_opt", MODE_PRIVATE);
-    Log.d(TAG, "[dynamic-code-loading] loading DEX: " + dexPath);
+**Highlight 1** constructs the `DexClassLoader` from `dexPath` - external storage, world-writable on older API levels, attacker-controlled.
 
-    try {
-        DexClassLoader loader = new DexClassLoader(
-            dexPath,
-            optimizedDir.getAbsolutePath(),
-            null,
-            getClassLoader());
-
-        // VULN: reflectively calls run() on the loaded class
-        Class<?> pluginClass = loader.loadClass("com.vulnlab.plugin.Payload");
-        Method runMethod = pluginClass.getMethod("run");
-        Object instance = pluginClass.newInstance();
-        Object result = runMethod.invoke(instance);
-        Log.d(TAG, "[dynamic-code-loading] result: " + result);
-        return "Loaded and executed. Result: " + result;
-    } catch (Exception e) {
-        Log.e(TAG, "[dynamic-code-loading] error", e);
-        return "Error loading/executing: " + e.getMessage();
-    }
-}
-```
+**Highlight 2** loads a fixed class name from whatever DEX just got loaded and calls its `run()` method. The class name is hardcoded, but the DEX backing it is not - drop a file named `plugin.dex` containing a class `com.vulnlab.plugin.Payload` with a `run()` method, and it executes as the app.
 
 The path comes from a user-editable field initialized to `/sdcard/plugin.dex`. External storage is writable by any app that holds `WRITE_EXTERNAL_STORAGE`, or on Android 10+ by any app that asks the user for scoped storage access to shared directories. Whatever DEX exists at that path gets loaded and its `run()` method is called inside the target's process.
 

@@ -26,17 +26,11 @@ grep -rn 'Log\.\(d\|v\|i\|w\|e\)(' decompile/sources/ | grep -E 'token|auth|pass
 
 **What does this code do?**
 
-```java
-// LoginActivity.java — TAG = "VulnLabLogin"
-Log.d(TAG, "Login attempt: email=" + email + " password=" + password);
-Log.d(TAG, "Session token issued: " + fakeToken);
-Log.d(TAG, "User PII: DOB=1990-01-15, SSN=123-45-6789, CC=4111111111111111");
+<img alt="Annotated Log.d calls showing credentials and PII leaking from LoginActivity and API secrets leaking on app start" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/logging-pii-annotated.png">
 
-// VulnApplication.java — TAG = "VulnLabApp", fires once on process start
-Log.d(TAG, "VulnLabApp started. API key: sk-prod-8f3k2j9x0q1w5e6r");
-Log.d(TAG, "DB connection: jdbc:mysql://internal.vulnlab.corp:3306/prod?user=admin&password=S3cr3t!");
-Log.d(TAG, "OAuth client secret: oauth_secret_abc123xyz789");
-```
+**Highlight 1** is the login flow - password, session token, and a full set of PII (DOB, SSN, credit card) logged verbatim on every login attempt.
+
+**Highlight 2** fires once, on process start, and is arguably worse: a production API key, a database connection string with embedded credentials, and an OAuth client secret, all in logcat before the user does anything.
 
 These strings are constructed at runtime and appear verbatim in logcat. The default `proguard-android-optimize.txt` does NOT strip Log calls - apps need explicit rules in their ProGuard config for that to happen.
 

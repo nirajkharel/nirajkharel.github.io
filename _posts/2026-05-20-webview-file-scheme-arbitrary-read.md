@@ -23,13 +23,11 @@ The detail that matters is which of the three `WebSettings` flags are on. Each o
 
 Three booleans on `WebSettings` control file-scheme behaviour. VulnLabApp turns all three on in `WebViewActivity.onCreate`:
 
-```java
-WebSettings settings = webView.getSettings();
-settings.setJavaScriptEnabled(true);
-settings.setAllowFileAccess(true);
-settings.setAllowFileAccessFromFileURLs(true);
-settings.setAllowUniversalAccessFromFileURLs(true);
-```
+<img alt="Annotated WebSettings showing the file-access flag and the two cross-origin exfil flags" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/webview-file-scheme-flags-annotated.png">
+
+**Highlight 1**, `setAllowFileAccess(true)`, is the base primitive - the WebView can load `file://` URLs at all, rendering any file the target app's UID can read.
+
+**Highlight 2** is the pair that turns a render into exfiltration. `setAllowFileAccessFromFileURLs` lets a `file://`-loaded page `fetch()` other `file://` URLs; `setAllowUniversalAccessFromFileURLs` lets that same page ship the result to any origin, `https://attacker.example` included.
 
 What each one gives the attacker:
 

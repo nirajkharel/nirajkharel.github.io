@@ -65,18 +65,11 @@ adb shell am start -n com.vulnlab.app/.MainActivity
 
 An attacker creates a separate app and declares one activity that claims VulnLabApp's affinity:
 
-```xml
-<!-- attacker app manifest -->
-<activity android:name=".PhishingActivity"
-    android:exported="true"
-    android:taskAffinity="com.vulnlab.app"
-    android:launchMode="singleTask">
-    <intent-filter>
-        <action android:name="android.intent.action.MAIN" />
-        <category android:name="android.intent.category.LAUNCHER" />
-    </intent-filter>
-</activity>
-```
+<img alt="Annotated attacker manifest showing the claimed task affinity and singleTask launch mode" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/strandhogg-phishing-activity-annotated.png">
+
+**Highlight 1** claims the exact string Android silently assigned to VulnLabApp's `MainActivity` - the package name, `com.vulnlab.app` - as this activity's own affinity.
+
+**Highlight 2**, `launchMode="singleTask"`, is what makes the claim active: this activity now competes to *be* the root of that task, not just join it.
 
 The attacker's `PhishingActivity` clones VulnLabApp's login screen. When the user enters credentials and taps login, it exfiltrates them and immediately forwards to the real VulnLabApp:
 

@@ -21,20 +21,13 @@ That path handling is the bug. A provider that takes the URI's last path segment
 
 <br>**The shape**
 
-```java
-private static final File EXPORTS_DIR =
-    new File("/data/data/com.vulnlab.app/exports");
+<img alt="Annotated openFile showing the raw path segment, the unchecked File construction, and the open call" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/content-provider-path-traversal-openfile-annotated.png">
 
-@Override
-public ParcelFileDescriptor openFile(@NonNull Uri uri, @NonNull String mode)
-        throws FileNotFoundException {
+**Highlight 1** takes the last URI path segment verbatim - `..` sequences ride along untouched.
 
-    String relativePath = uri.getLastPathSegment();
-    // VULN: no File.getCanonicalFile() normalization
-    File target = new File(EXPORTS_DIR, relativePath);
-    return ParcelFileDescriptor.open(target, ParcelFileDescriptor.MODE_READ_ONLY);
-}
-```
+**Highlight 2** is the whole bug in one line: `new File(EXPORTS_DIR, relativePath)` with no `getCanonicalFile()` call, no bounds check. The source's own comment says so.
+
+**Highlight 3** opens whatever that unchecked path resolved to, and hands the descriptor back across the IPC boundary - opened with the target app's UID, not the caller's.
 
 The developer might assume that "files under `/data/data/com.vulnlab.app/exports/` are exposed for sharing". The reality: `new File(EXPORTS_DIR, "../shared_prefs/auth_prefs.xml")` resolves to `/data/data/com.vulnlab.app/shared_prefs/auth_prefs.xml`. The exports dir is only the *prefix*; `..` climbs straight out of it and back into the data root.
 

@@ -22,19 +22,11 @@ The problem is "whoever signed up." `sendBroadcast(intent)` with no target packa
 
 <br>**The shape**
 
-```java
-// VULN: no permission — any app receives this
-Intent sessionChanged = new Intent("com.vulnlab.app.SESSION_CHANGED");
-sessionChanged.putExtra("token",   "session_token_abc123");
-sessionChanged.putExtra("user_id", "user_42");
-sessionChanged.putExtra("email",   "victim@corp.com");
-sendBroadcast(sessionChanged);   // VULN: no permission argument
+<img alt="Annotated broadcasts showing the session token and role leaking with no permission scoping" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/implicit-broadcast-shape-annotated.png">
 
-Intent loginSuccess = new Intent("com.vulnlab.app.LOGIN_SUCCESS");
-loginSuccess.putExtra("email", "victim@corp.com");
-loginSuccess.putExtra("role",  "ADMIN");
-sendBroadcast(loginSuccess);     // VULN
-```
+**Highlight 1** is `SESSION_CHANGED` - session token, user ID, and email packed into extras, then `sendBroadcast` with no target package and no permission. Every receiver on the device registered for this action string gets a copy.
+
+**Highlight 2** is `LOGIN_SUCCESS` - same mistake, email and role this time. `role=ADMIN` in an eavesdroppable broadcast is a second finding riding along with the first.
 
 Developers might assume that the broadcast goes to "our own `ImplicitBroadcastReceiver`". The reality: any app with a `<receiver>` declaring `<intent-filter><action android:name="com.vulnlab.app.SESSION_CHANGED" /></intent-filter>` receives the same intent, complete with the token and email extras.
 

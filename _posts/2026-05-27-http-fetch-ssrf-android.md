@@ -21,28 +21,11 @@ Server-side request forgery is the bug everyone knows from web apps. The mobile 
 
 VulnLabApp's `WebViewActivity` exposes a "Fetch" button that pipes either the intent extra `fetch` or the EditText contents into a raw `HttpURLConnection`, with no scheme, host, or address-class validation:
 
-```java
-btnFetch.setOnClickListener(v -> {
-    String target = etFetchUrl.getText().toString();
-    new Thread(() -> {
-        try {
-            URL url = new URL(target);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.connect();
-            BufferedReader br = new BufferedReader(
-                new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) sb.append(line).append("\n");
-            String response = sb.toString();
-            runOnUiThread(() -> Toast.makeText(this,
-                "SSRF response (first 200):\n" + response.substring(0,
-                    Math.min(200, response.length())),
-                Toast.LENGTH_LONG).show());
-        } catch (IOException e) { /* ... */ }
-    }).start();
-});
-```
+<img alt="Annotated fetch handler showing the unvalidated target string and the connection call" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/http-fetch-ssrf-shape-annotated.png">
+
+**Highlight 1** is `target` - whatever text sits in the field when Fetch is tapped, no scheme check, no host check.
+
+**Highlight 2** opens the connection. `new URL(target)` and `openConnection()`/`connect()` accept anything: `http://192.168.1.1/`, `http://127.0.0.1:8080/`, `http://169.254.169.254/` - the device makes the request from wherever it's networked.
 
 The pre-fill comes straight from the intent:
 

@@ -42,20 +42,13 @@ if (incoming.hasExtra("next_intent")) {
 
 …and the typed-Parcelable variant, where the activity deserializes a custom `UserAction` and uses its fields to construct the outgoing Intent:
 
-```java
-if (incoming.hasExtra("pending_action")) {
-    com.vulnlab.app.models.UserAction action =
-        incoming.getParcelableExtra("pending_action");
-    if (action != null) {
-        Intent constructed = new Intent();
-        constructed.setClassName(getPackageName(), action.targetActivity);
-        constructed.putExtra("data", action.payloadData);
-        startActivity(constructed);
-        finish();
-        return;
-    }
-}
-```
+<img alt="Annotated typed-Parcelable forwarder showing the deserialize, class-name, and startActivity points" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/parcelable-redirection-typed-annotated.png">
+
+**Highlight 1** deserializes `UserAction` straight from the incoming Parcelable - the "type system is doing the work" illusion starts here, but nothing about the cast validates what's inside.
+
+**Highlight 2** is the actual redirection: `action.targetActivity`, a plain attacker-controlled string, becomes the class name of the component that's about to launch. No allowlist, no prefix check.
+
+**Highlight 3** fires it - `startActivity(constructed)` with zero validation on where `constructed` points or what it carries.
 
 The `UserAction` Parcelable holds three public fields the receiver reads without checking:
 

@@ -29,16 +29,11 @@ android/app/src/main/java/com/vulnlab/app/activities/LoginActivity.java # writes
 
 No `fullBackupContent` filter, no `dataExtractionRules`. Every file under `/data/data/com.vulnlab.app/` is in scope. Meanwhile `LoginActivity` happily stuffs the user's email, password, session token, and a production API key into `auth_prefs`:
 
-```java
-SharedPreferences prefs = getSharedPreferences(
-    VulnApplication.PREFS_AUTH, MODE_PRIVATE);
-prefs.edit()
-    .putString(VulnApplication.KEY_EMAIL,    email)
-    .putString(VulnApplication.KEY_PASSWORD, password)
-    .putString(VulnApplication.KEY_TOKEN,    fakeToken)
-    .putString(VulnApplication.KEY_API_KEY,  "sk-prod-8f3k2j9x0q1w5e6r")
-    .apply();
-```
+<img alt="Annotated LoginActivity SharedPreferences write showing plaintext password, token, and API key" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/allow-backup-shared-prefs-annotated.png">
+
+**Highlight 1** is the password, stored as a plain string with no hashing or encryption - `SharedPreferences` is just an XML file on disk, and with `allowBackup="true"` that file ships out whole in every backup.
+
+**Highlight 2** is worse: a live session token and a production API key, same treatment. The token means account takeover without ever touching the password. The API key means whatever backend service it authenticates to is now reachable by anyone who gets a copy of this file.
 
 `allowBackup="true"` (or absent — same thing) enables both the legacy Key-Value backup and the modern Auto Backup. `fullBackupContent` lets the developer opt out of specific subdirectories, but most apps do not bother — they ship with `allowBackup="true"` and no `fullBackupContent` filter.
 

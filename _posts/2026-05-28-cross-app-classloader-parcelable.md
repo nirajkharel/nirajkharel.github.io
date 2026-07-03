@@ -34,22 +34,13 @@ That ClassLoader can now load any class from the victim app's APK. Reflection wo
 
 **Half two, passing the loaded class as a Parcelable extra.** VulnLabApp's exported `CrossAppClassLoaderActivity` reads a custom `UserAction` Parcelable, then uses its `targetActivity` field directly to construct and fire the next Intent:
 
-```java
-if (intent.hasExtra("action")) {
-    UserAction action = intent.getParcelableExtra("action");
-    if (action != null) {
-        try {
-            Intent next = new Intent();
-            next.setClassName(getPackageName(), action.targetActivity);
-            next.putExtra("data", action.payloadData);
-            startActivity(next);
-        } catch (Exception e) {
-            tvOutput.setText("Error: " + e.getMessage());
-        }
-        return;
-    }
-}
-```
+<img alt="Annotated relay showing the typed-but-forgeable getParcelableExtra, the field trust, and the launch" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/cross-app-classloader-relay-annotated.png">
+
+**Highlight 1** is the read that "type validation" advice says is safe - it really is a `UserAction`, the type check passes, because the attacker built one using the victim's own ClassLoader.
+
+**Highlight 2** trusts `action.targetActivity` unconditionally - a field the attacker's evil twin fully controls, straight into `setClassName`.
+
+**Highlight 3** launches it. Same shape as ordinary intent redirection, except the "only trust your own Parcelable types" defense never gets a chance to fire.
 
 The receiver expects a `UserAction` because that is the app's own type. When the receiver deserializes the Parcelable, it does so using its own ClassLoader, which knows the `UserAction` class. The attacker's evil instance unmarshalls successfully into the receiver's process, same type, same fields, attacker-supplied values.
 
