@@ -13,7 +13,7 @@ render_with_liquid: false
 Apps that store auth tokens, OAuth refresh tokens, or PII in NSUserDefaults are doing the equivalent of writing them to a text file. The bug is common enough that "grep the plist" is the first step on any iOS audit.
 
 <aside class="lab">
-  <p><strong>Vulnerable demo</strong> · <a href="https://github.com/nirajkharel/VulnLabApp">VulnLabApp</a></p>
+  <p><strong>Vulnerable demo</strong> · <a href="https://github.com/nirajkharel/VulnLabAppiOS">VulnLabAppiOS</a></p>
   <ul>
     <li><code>ios/VulnLabApp/ViewControllers/LoginViewController.swift</code></li>
   </ul>
@@ -64,6 +64,8 @@ objection -g com.vulnlab.iosapp explore
 ios nsuserdefaults get
 ```
 
+<img alt="LoginViewController.swift loginTapped storing credentials in NSUserDefaults (highlight 1: plaintext password, highlight 2: hardcoded API key)" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-nsuserdefaults-2.png">
+
 The dump lists every key-value pair. Sensitive content is visually obvious.
 
 Static analysis: decompile the IPA and search for the strings:
@@ -74,39 +76,51 @@ strings Payload/VulnLabApp.app/VulnLabApp | grep -iE 'user_password|session_toke
 
 Each match shows a candidate key name. The pattern `UserDefaults.standard.set(*, forKey: "<key>")` writes to that key. On VulnLabApp this surfaces `user_email`, `user_password`, `session_token`, and `api_key` directly.
 
-Runtime hook:
+Runtime hook: dump the existing store on first access, then intercept every write:
 
 ```javascript
-const NSUserDefaults = ObjC.classes.NSUserDefaults;
-Interceptor.attach(NSUserDefaults['+ standardUserDefaults'].implementation, {
+// frida -U -f com.vulnlab.iosapp -l nsuserdefaults.js
+// Trigger a login in the app after attaching to see writes
+
+var dumped = false;
+Interceptor.attach(ObjC.classes.NSUserDefaults['+ standardUserDefaults'].implementation, {
   onLeave: function (retval) {
-    console.log('[NSUserDefaults.standardUserDefaults] retval=' + retval);
+    if (dumped) return;
+    dumped = true;
+    var d = new ObjC.Object(retval);
+    console.log('[NSUserDefaults] existing store:\n' + d.dictionaryRepresentation());
   }
 });
 
-const setObj = NSUserDefaults['- setObject:forKey:'].implementation;
-Interceptor.attach(setObj, {
+Interceptor.attach(ObjC.classes.NSUserDefaults['- setObject:forKey:'].implementation, {
   onEnter: function (args) {
-    const value = new ObjC.Object(args[2]);
-    const key = new ObjC.Object(args[3]);
-    console.log('[setObject:forKey:] key=' + key + ' value=' + value);
+    var key   = new ObjC.Object(args[3]);
+    var value = new ObjC.Object(args[2]);
+    console.log('[setObject:forKey:] ' + key + ' = ' + value);
   }
 });
 ```
 
-The trace shows every UserDefaults write in real time. Sensitive keys are obvious.
+<img alt="LoginViewController.swift loginTapped storing credentials in NSUserDefaults (highlight 1: plaintext password, highlight 2: hardcoded API key)" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-nsuserdefaults-3.png">
+
+The first block prints the entire existing store once; the second block prints every write in real time. Tapping Login in VulnLabApp triggers four `setObject:forKey:` calls — email, password, session token, and API key in plaintext.
 
 <br>**The iTunes backup angle**
 
 Even without a jailbroken device, NSUserDefaults plist contents end up in iTunes backups. The plist is in the app's `Library/Preferences/`, which is included in backups by default.
 
 ```bash
+# Enable backup
+idevicebackup2 encryption on somepassword
+
 # Backup, then extract
 idevicebackup2 backup --full ./backup
 ideviceibackup2 unback ./backup
 # Find the plist
 find unback -name '*.plist'
 ```
+<img alt="LoginViewController.swift loginTapped storing credentials in NSUserDefaults (highlight 1: plaintext password, highlight 2: hardcoded API key)" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-nsuserdefaults-4.png">
+<img alt="LoginViewController.swift loginTapped storing credentials in NSUserDefaults (highlight 1: plaintext password, highlight 2: hardcoded API key)" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-nsuserdefaults-5.png">
 
 For encrypted backups, the password is required to decrypt. For unencrypted backups (the default if the user did not enable backup encryption), no password.
 
