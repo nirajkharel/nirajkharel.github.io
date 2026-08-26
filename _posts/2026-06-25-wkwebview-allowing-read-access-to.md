@@ -1,5 +1,5 @@
 ---
-title: WKWebView allowingReadAccessTo File Read
+title: iOS - WKWebView allowingReadAccessTo File Read
 author: nirajkharel
 date: 2026-06-25 14:30:00 +0800
 categories: [Mobile Pentesting, iOS]
