@@ -1,5 +1,5 @@
 ---
-title: iOS - WKWebView JS Bridge RCE
+title: iOS - WKWebView JS Bridge
 author: nirajkharel
 date: 2026-06-26 14:30:00 +0800
 categories: [Mobile Pentesting, iOS]
